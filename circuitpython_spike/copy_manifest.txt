@@ -1,4 +1,4 @@
 shared-bindings/usdl2	__init__.c
 shared-bindings/usdl2	__init__.h
-shared-module/usdl2	__init.c
-shared-module/usdl2	__init.h
+shared-module/usdl2	__init__.c
+shared-module/usdl2	__init__.h

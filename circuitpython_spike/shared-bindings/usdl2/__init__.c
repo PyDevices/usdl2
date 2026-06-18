@@ -126,16 +126,6 @@ static mp_obj_t usdl2_rect_obj(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(usdl2_rect_fun_obj, 4, 4, usdl2_rect_obj);
 
-static mp_obj_t usdl2_add_timer_obj(size_t n_args, const mp_obj_t *args) {
-    return usdl2_add_timer(n_args, args);
-}
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(usdl2_add_timer_fun_obj, 2, 3, usdl2_add_timer_obj);
-
-static mp_obj_t usdl2_remove_timer_obj(mp_obj_t timer_in) {
-    return usdl2_remove_timer(timer_in);
-}
-static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_remove_timer_fun_obj, usdl2_remove_timer_obj);
-
 static const mp_rom_map_elem_t usdl2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_usdl2) },
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&usdl2_init_fun_obj) },
@@ -162,8 +152,6 @@ static const mp_rom_map_elem_t usdl2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_poll_event), MP_ROM_PTR(&usdl2_poll_event_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_key_name), MP_ROM_PTR(&usdl2_get_key_name_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_rect), MP_ROM_PTR(&usdl2_rect_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_add_timer), MP_ROM_PTR(&usdl2_add_timer_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_remove_timer), MP_ROM_PTR(&usdl2_remove_timer_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_Event), MP_ROM_PTR(&usdl2_event_type) },
 };
 

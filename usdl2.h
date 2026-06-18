@@ -45,5 +45,3 @@ mp_obj_t usdl2_update_texture(size_t n_args, const mp_obj_t *args);
 mp_obj_t usdl2_poll_event(mp_obj_t event_in);
 mp_obj_t usdl2_get_key_name(mp_obj_t sym_in);
 mp_obj_t usdl2_rect_helper(size_t n_args, const mp_obj_t *args);
-mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args);
-mp_obj_t usdl2_remove_timer(mp_obj_t timer_in);

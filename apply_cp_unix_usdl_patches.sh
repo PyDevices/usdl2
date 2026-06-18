@@ -330,9 +330,6 @@ PY
     report patch "$DEFNS_MK"
     report patch "$MPCONFIG_MK"
     report patch "$PORT_MK"
-    if [ -f "$PORT_DIR/unix_mphal.c" ]; then
-        report patch "$PORT_DIR/unix_mphal.c"
-    fi
     exit 0
 fi
 
@@ -377,17 +374,12 @@ insert_block_after_line "$VARIANT_MK" "$(variant_mk_anchor)" "$USDL2_ENABLE_BLOC
 log
 
 log "==> Patch unix variant mpconfigvariant.mk (module sources)"
-insert_raw_after_line "$VARIANT_MK" $'shared-bindings/lvgl/__init__.c \' $'shared-bindings/usdl2/__init__.c \'
-insert_raw_after_line "$VARIANT_MK" $'shared-module/lvgl/__init.c \' $'shared-module/usdl2/__init.c \'
+insert_raw_after_line "$VARIANT_MK" $'\tshared-bindings/lvgl/__init__.c \\' $'\tshared-bindings/usdl2/__init__.c \\'
+insert_raw_after_line "$VARIANT_MK" $'\tshared-module/lvgl/__init__.c \\' $'\tshared-module/usdl2/__init__.c \\'
 log "==> Patch unix variant mpconfigvariant.h (ifndef guard)"
 if [ -f "$VARIANT_H" ]; then
     VARIANT_H_BLOCK="#ifndef CIRCUITPY_USDL2
 #define CIRCUITPY_USDL2 (0)
-#endif
-#if CIRCUITPY_USDL2
-#include <SDL.h>
-#undef RUN_BACKGROUND_TASKS
-#define RUN_BACKGROUND_TASKS SDL_PumpEvents()
 #endif"
     insert_block_after_line "$VARIANT_H" '/* >>> lv-circuitpython-mod end */' "$VARIANT_H_BLOCK"
 fi
@@ -403,7 +395,7 @@ log "==> Patch py/circuitpy_defns.mk"
 DEFNS_PATTERNS_BLOCK="ifeq (\$(CIRCUITPY_USDL2),1)
 SRC_PATTERNS += usdl2/%
 endif"
-insert_block_after_line "$DEFNS_MK" "# >>> cmods-lvgl end" "$DEFNS_PATTERNS_BLOCK" "SRC_PATTERNS += usdl2/%"
+insert_block_after_line "$DEFNS_MK" "# >>> lv-circuitpython-mod end" "$DEFNS_PATTERNS_BLOCK" "SRC_PATTERNS += usdl2/%"
 
 insert_raw_after_line "$DEFNS_MK" $'\tlvgl/__init__.c \\' $'\tusdl2/__init__.c \\'
 log
@@ -412,44 +404,6 @@ log "==> Patch port Makefile (circuitpython.mk)"
 PORT_BLOCK="USDL2_MOD_DIR := \$(abspath $USDL2_MOD_REL)
 include \$(USDL2_MOD_DIR)/circuitpython.mk"
 insert_block_after_line "$PORT_MK" "# >>> lv-circuitpython-mod end" "$PORT_BLOCK"
-log
-
-MPHAL_C="$PORT_DIR/unix_mphal.c"
-log "==> Patch ports/unix/unix_mphal.c (stdin poll for usdl2 timers)"
-if [ ! -f "$MPHAL_C" ]; then
-    echo "unix_mphal.c not found: $MPHAL_C" >&2
-    exit 1
-fi
-if grep -qF "usdl2-cmod begin (apply_cp_unix_usdl_patches.sh)" "$MPHAL_C" 2>/dev/null; then
-    log "  skip (already patched): $MPHAL_C"
-elif [ "$DRY_RUN" = 1 ]; then
-    python3 "$USDL2_MOD_DIR/patch_unix_mphal_stdin_poll.py" --dry-run "$MPHAL_C"
-else
-    python3 "$USDL2_MOD_DIR/patch_unix_mphal_stdin_poll.py" "$MPHAL_C"
-    log "  patched: $MPHAL_C"
-fi
-log
-
-MPPORT_H="$PORT_DIR/mpconfigport.h"
-log "==> Patch ports/unix/mpconfigport.h (guard RUN_BACKGROUND_TASKS for usdl2)"
-if grep -qF "ifndef RUN_BACKGROUND_TASKS" "$MPPORT_H" 2>/dev/null; then
-    log "  skip (already patched): $MPPORT_H"
-elif [ "$DRY_RUN" = 1 ]; then
-    echo "  [dry-run] wrap RUN_BACKGROUND_TASKS in $MPPORT_H"
-else
-    python3 - "$MPPORT_H" <<'PY'
-import sys
-from pathlib import Path
-path = Path(sys.argv[1])
-text = path.read_text()
-old = "// CIRCUITPY-CHANGE\n#define RUN_BACKGROUND_TASKS ((void)0)"
-new = "// CIRCUITPY-CHANGE\n#ifndef RUN_BACKGROUND_TASKS\n#define RUN_BACKGROUND_TASKS ((void)0)\n#endif"
-if old not in text:
-    raise SystemExit(f"RUN_BACKGROUND_TASKS anchor not found in {path}")
-path.write_text(text.replace(old, new, 1))
-PY
-    log "  patched: $MPPORT_H"
-fi
 log
 
 if [ "$DRY_RUN" = 1 ]; then
