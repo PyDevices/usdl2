@@ -1,0 +1,463 @@
+#!/usr/bin/env bash
+# Apply (or preview) CircuitPython usdl2 integration patches (unix/coverage only).
+#
+# Usage:
+#   ./apply_cp_unix_usdl_patches.sh --dry-run
+#   ./apply_cp_unix_usdl_patches.sh --apply
+#   ./apply_cp_unix_usdl_patches.sh --status
+#
+# Environment:
+#   CP_DIR          CircuitPython tree (default: $WORKSPACE_DIR/circuitpython)
+#   WORKSPACE_DIR   Parent of usdl2 (default: parent of this repo)
+#   VARIANT         Unix variant (default: coverage)
+
+set -euo pipefail
+
+USDL2_MOD_DIR=$(cd "$(dirname "$0")" && pwd)
+WORKSPACE_DIR="${WORKSPACE_DIR:-$(cd "$USDL2_MOD_DIR/.." && pwd)}"
+CP_DIR="${CP_DIR:-$WORKSPACE_DIR/circuitpython}"
+if [ ! -d "$CP_DIR/.git" ] && [ -d "$HOME/github/circuitpython/.git" ]; then
+    CP_DIR="$HOME/github/circuitpython"
+fi
+PORT=unix
+VARIANT="${VARIANT:-coverage}"
+SPIKE_DIR="$USDL2_MOD_DIR/circuitpython_spike"
+SPIKE_MANIFEST="$SPIKE_DIR/copy_manifest.txt"
+
+MARKER_TAG="usdl2-cmod begin (apply_cp_unix_usdl_patches.sh)"
+MARKER_BEGIN="# >>> $MARKER_TAG"
+MARKER_END="# >>> usdl2-cmod end"
+
+markers_for_file() {
+    local file="$1"
+    case "$file" in
+        *.h)
+            echo "/* >>> $MARKER_TAG */"
+            echo "/* >>> usdl2-cmod end */"
+            ;;
+        *)
+            echo "$MARKER_BEGIN"
+            echo "$MARKER_END"
+            ;;
+    esac
+}
+
+repair_invalid_header_markers() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    case "$file" in
+        *.h) ;;
+        *) return 0 ;;
+    esac
+    if ! grep -qF "# >>> usdl2-cmod" "$file"; then
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        echo "  [dry-run] repair invalid # markers in $file"
+        return 0
+    fi
+    python3 - "$file" "$MARKER_TAG" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+tag = sys.argv[2]
+text = path.read_text()
+text = text.replace(f"# >>> {tag}", f"/* >>> {tag} */")
+text = text.replace("# >>> usdl2-cmod end", "/* >>> usdl2-cmod end */")
+path.write_text(text)
+PY
+    log "  repaired header markers: $file"
+}
+
+MODE="${1:---dry-run}"
+case "$MODE" in
+    --dry-run|--apply|--status) ;;
+    -h|--help)
+        sed -n '2,14p' "$0"
+        exit 0
+        ;;
+    *)
+        echo "Usage: $0 [--dry-run|--apply|--status]"
+        exit 1
+        ;;
+esac
+
+DRY_RUN=0
+APPLY=0
+if [ "$MODE" = "--dry-run" ]; then DRY_RUN=1; fi
+if [ "$MODE" = "--apply" ]; then APPLY=1; fi
+
+log() { echo "$*"; }
+
+remove_legacy_patches() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    if ! grep -qF "cmods-usdl2 begin" "$file" 2>/dev/null; then
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        echo "  [dry-run] remove legacy cmods-usdl2 block from $file"
+        return 0
+    fi
+    python3 - "$file" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text()
+patterns = [
+    r"\n?# >>> cmods-usdl2 begin \(apply_cp_unix_usdl_patches\.sh\)\n.*?\n# >>> cmods-usdl2 end\n?",
+    r"\n?/\* >>> cmods-usdl2 begin \(apply_cp_unix_usdl_patches\.sh\) \*/\n.*?\n/\* >>> cmods-usdl2 end \*/\n?",
+]
+for pat in patterns:
+    text, _ = re.subn(pat, "\n", text, count=1, flags=re.DOTALL)
+path.write_text(text)
+PY
+    log "  removed legacy cmods-usdl2 block: $file"
+}
+
+patch_block_present() {
+    local file="$1"
+    local needle="${2:-usdl2-cmod begin}"
+    [ -f "$file" ] && grep -qF "$needle" "$file"
+}
+
+insert_block_before_line() {
+    local file="$1"
+    local anchor="$2"
+    local block="$3"
+    local needle="${4:-usdl2-cmod begin}"
+    repair_invalid_header_markers "$file"
+    if patch_block_present "$file" "$needle"; then
+        log "  skip (already patched): $file"
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        echo "  [dry-run] insert block into $file before: $anchor"
+        return 0
+    fi
+    local begin end
+    begin=$(markers_for_file "$file" | sed -n '1p')
+    end=$(markers_for_file "$file" | sed -n '2p')
+    python3 - "$file" "$anchor" "$begin" "$end" "$block" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+anchor = sys.argv[2]
+begin = sys.argv[3]
+end = sys.argv[4]
+block = sys.argv[5]
+
+text = path.read_text()
+if begin in text:
+    sys.exit(0)
+if anchor not in text:
+    raise SystemExit(f"anchor not found in {path}: {anchor!r}")
+insert = f"\n{begin}\n{block}\n{end}\n"
+path.write_text(text.replace(anchor, insert + anchor, 1))
+PY
+}
+
+insert_block_after_line() {
+    local file="$1"
+    local anchor="$2"
+    local block="$3"
+    local needle="${4:-usdl2-cmod begin}"
+    repair_invalid_header_markers "$file"
+    if patch_block_present "$file" "$needle"; then
+        log "  skip (already patched): $file"
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        echo "  [dry-run] insert block into $file after: $anchor"
+        return 0
+    fi
+    local begin end
+    begin=$(markers_for_file "$file" | sed -n '1p')
+    end=$(markers_for_file "$file" | sed -n '2p')
+    python3 - "$file" "$anchor" "$begin" "$end" "$block" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+anchor = sys.argv[2]
+begin = sys.argv[3]
+end = sys.argv[4]
+block = sys.argv[5]
+
+text = path.read_text()
+if begin in text:
+    sys.exit(0)
+if anchor not in text:
+    raise SystemExit(f"anchor not found in {path}: {anchor!r}")
+insert = f"\n{begin}\n{block}\n{end}\n"
+path.write_text(text.replace(anchor, anchor + insert, 1))
+PY
+}
+
+insert_raw_after_line() {
+    local file="$1"
+    local anchor="$2"
+    local line="$3"
+    if grep -qF "$line" "$file" 2>/dev/null; then
+        log "  skip (already present): $file"
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        echo "  [dry-run] insert into $file after: $anchor"
+        return 0
+    fi
+    python3 - "$file" "$anchor" "$line" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+anchor = sys.argv[2]
+line = sys.argv[3]
+
+text = path.read_text()
+if line in text:
+    sys.exit(0)
+if anchor not in text:
+    raise SystemExit(f"anchor not found in {path}: {anchor!r}")
+path.write_text(text.replace(anchor, anchor + "\n" + line, 1))
+PY
+}
+
+copy_spike_files() {
+    python3 - "$SPIKE_DIR" "$CP_DIR" "$SPIKE_MANIFEST" "$DRY_RUN" <<'PY'
+import filecmp
+import shutil
+import sys
+from pathlib import Path
+
+spike_dir, cp_dir, manifest, dry = sys.argv[1:5]
+dry_run = dry == "1"
+
+def copy_one(rel_dir: str, filename: str) -> None:
+    rel = f"{rel_dir}/{filename}"
+    src = Path(spike_dir)
+    dst = Path(cp_dir)
+    for part in rel_dir.split("/"):
+        src /= part
+        dst /= part
+    src /= filename
+    dst /= filename
+    if not src.is_file():
+        raise SystemExit(f"missing spike file: {src}")
+    if dst.is_file() and filecmp.cmp(src, dst, shallow=False):
+        print(f"  unchanged: {rel}")
+        return
+    if dry_run:
+        verb = "update" if dst.is_file() else "create"
+        print(f"  [dry-run] {verb} {rel}")
+        return
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    print(f"  copied: {rel}")
+
+for raw in Path(manifest).read_text().splitlines():
+    line = raw.split("#", 1)[0].strip()
+    if not line:
+        continue
+    rel_dir, filename = line.split("\t", 1)
+    copy_one(rel_dir.strip(), filename.strip())
+PY
+}
+
+if [ ! -d "$CP_DIR/.git" ]; then
+    echo "CircuitPython tree not found at $CP_DIR"
+    echo "Set CP_DIR to your clone (e.g. CP_DIR=~/github/cmods/circuitpython)"
+    exit 1
+fi
+
+if [ ! -f "$SPIKE_MANIFEST" ]; then
+    echo "Missing spike manifest: $SPIKE_MANIFEST" >&2
+    exit 1
+fi
+
+PORT_DIR="$CP_DIR/ports/$PORT"
+VARIANT_MK="$PORT_DIR/variants/$VARIANT/mpconfigvariant.mk"
+VARIANT_H="$PORT_DIR/variants/$VARIANT/mpconfigvariant.h"
+DEFNS_MK="$CP_DIR/py/circuitpy_defns.mk"
+MPCONFIG_MK="$CP_DIR/py/circuitpy_mpconfig.mk"
+PORT_MK="$PORT_DIR/Makefile"
+
+USDL2_MOD_REL=$(python3 -c "import os; print(os.path.relpath('$USDL2_MOD_DIR', '$PORT_DIR'))")
+
+log "CircuitPython: $CP_DIR"
+log "workspace:     $WORKSPACE_DIR"
+log "usdl2:           $USDL2_MOD_DIR (as $USDL2_MOD_REL from port)"
+log "variant:         $VARIANT"
+log "mode:            $MODE"
+log
+
+if [ "$MODE" = "--status" ]; then
+    SPIKE_INIT_C=$(python3 - "$SPIKE_MANIFEST" "$CP_DIR" <<'PY'
+import sys
+from pathlib import Path
+
+manifest, cp_dir = sys.argv[1:3]
+rel_dir, filename = Path(manifest).read_text().splitlines()[0].split("\t", 1)
+p = Path(cp_dir)
+for part in rel_dir.split("/"):
+    p /= part
+p /= filename.strip()
+print(p)
+PY
+)
+    report() {
+        local label="$1"
+        local file="$2"
+        if [ ! -e "$file" ]; then
+            echo "missing  $file"
+        elif [ "$label" = "spike" ]; then
+            echo "ok       $file"
+        elif patch_block_present "$file"; then
+            echo "patched  $file"
+        else
+            echo "pending  $file"
+        fi
+    }
+    report spike "$SPIKE_INIT_C"
+    report patch "$VARIANT_MK"
+    if [ -f "$VARIANT_H" ]; then
+        report patch "$VARIANT_H"
+    fi
+    report patch "$DEFNS_MK"
+    report patch "$MPCONFIG_MK"
+    report patch "$PORT_MK"
+    if [ -f "$PORT_DIR/unix_mphal.c" ]; then
+        report patch "$PORT_DIR/unix_mphal.c"
+    fi
+    exit 0
+fi
+
+log "==> Copy spike templates"
+copy_spike_files
+log
+
+LEGACY_FILES=(
+    "$PORT_MK"
+    "$VARIANT_MK"
+    "$VARIANT_H"
+    "$MPCONFIG_MK"
+    "$DEFNS_MK"
+)
+if [ "$APPLY" = 1 ] || [ "$DRY_RUN" = 1 ]; then
+    log "==> Remove legacy cmods-usdl2 patches (if present)"
+    for _legacy in "${LEGACY_FILES[@]}"; do
+        remove_legacy_patches "$_legacy"
+    done
+    log
+fi
+
+USDL2_ENABLE_BLOCK="CIRCUITPY_USDL2 = 1
+CFLAGS += -DCIRCUITPY_USDL2=1"
+
+variant_mk_anchor() {
+    if [ "$VARIANT" = "coverage" ]; then
+        echo "# >>> lv-circuitpython-mod end"
+    elif [ "$VARIANT" = "standard" ]; then
+        echo 'FROZEN_MANIFEST ?= $(VARIANT_DIR)/manifest.py'
+    else
+        echo $'-DCIRCUITPY_LOCALE=1 \\'
+    fi
+}
+
+log "==> Patch unix variant mpconfigvariant.mk (enable flag)"
+if [ ! -f "$VARIANT_MK" ]; then
+    echo "Variant makefile not found: $VARIANT_MK" >&2
+    exit 1
+fi
+insert_block_after_line "$VARIANT_MK" "$(variant_mk_anchor)" "$USDL2_ENABLE_BLOCK"
+log
+
+log "==> Patch unix variant mpconfigvariant.mk (module sources)"
+insert_raw_after_line "$VARIANT_MK" $'shared-bindings/lvgl/__init__.c \' $'shared-bindings/usdl2/__init__.c \'
+insert_raw_after_line "$VARIANT_MK" $'shared-module/lvgl/__init.c \' $'shared-module/usdl2/__init.c \'
+log "==> Patch unix variant mpconfigvariant.h (ifndef guard)"
+if [ -f "$VARIANT_H" ]; then
+    VARIANT_H_BLOCK="#ifndef CIRCUITPY_USDL2
+#define CIRCUITPY_USDL2 (0)
+#endif
+#if CIRCUITPY_USDL2
+#include <SDL.h>
+#undef RUN_BACKGROUND_TASKS
+#define RUN_BACKGROUND_TASKS SDL_PumpEvents()
+#endif"
+    insert_block_after_line "$VARIANT_H" '/* >>> lv-circuitpython-mod end */' "$VARIANT_H_BLOCK"
+fi
+log
+
+log "==> Patch py/circuitpy_mpconfig.mk (default off)"
+MPCONFIG_BLOCK="CIRCUITPY_USDL2 ?= 0
+CFLAGS += -DCIRCUITPY_USDL2=\$(CIRCUITPY_USDL2)"
+insert_block_after_line "$MPCONFIG_MK" "CFLAGS += -DCIRCUITPY_LVGL=\$(CIRCUITPY_LVGL)" "$MPCONFIG_BLOCK"
+log
+
+log "==> Patch py/circuitpy_defns.mk"
+DEFNS_PATTERNS_BLOCK="ifeq (\$(CIRCUITPY_USDL2),1)
+SRC_PATTERNS += usdl2/%
+endif"
+insert_block_after_line "$DEFNS_MK" "# >>> cmods-lvgl end" "$DEFNS_PATTERNS_BLOCK" "SRC_PATTERNS += usdl2/%"
+
+insert_raw_after_line "$DEFNS_MK" $'\tlvgl/__init__.c \\' $'\tusdl2/__init__.c \\'
+log
+
+log "==> Patch port Makefile (circuitpython.mk)"
+PORT_BLOCK="USDL2_MOD_DIR := \$(abspath $USDL2_MOD_REL)
+include \$(USDL2_MOD_DIR)/circuitpython.mk"
+insert_block_after_line "$PORT_MK" "# >>> lv-circuitpython-mod end" "$PORT_BLOCK"
+log
+
+MPHAL_C="$PORT_DIR/unix_mphal.c"
+log "==> Patch ports/unix/unix_mphal.c (stdin poll for usdl2 timers)"
+if [ ! -f "$MPHAL_C" ]; then
+    echo "unix_mphal.c not found: $MPHAL_C" >&2
+    exit 1
+fi
+if grep -qF "usdl2-cmod begin (apply_cp_unix_usdl_patches.sh)" "$MPHAL_C" 2>/dev/null; then
+    log "  skip (already patched): $MPHAL_C"
+elif [ "$DRY_RUN" = 1 ]; then
+    python3 "$USDL2_MOD_DIR/patch_unix_mphal_stdin_poll.py" --dry-run "$MPHAL_C"
+else
+    python3 "$USDL2_MOD_DIR/patch_unix_mphal_stdin_poll.py" "$MPHAL_C"
+    log "  patched: $MPHAL_C"
+fi
+log
+
+MPPORT_H="$PORT_DIR/mpconfigport.h"
+log "==> Patch ports/unix/mpconfigport.h (guard RUN_BACKGROUND_TASKS for usdl2)"
+if grep -qF "ifndef RUN_BACKGROUND_TASKS" "$MPPORT_H" 2>/dev/null; then
+    log "  skip (already patched): $MPPORT_H"
+elif [ "$DRY_RUN" = 1 ]; then
+    echo "  [dry-run] wrap RUN_BACKGROUND_TASKS in $MPPORT_H"
+else
+    python3 - "$MPPORT_H" <<'PY'
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+text = path.read_text()
+old = "// CIRCUITPY-CHANGE\n#define RUN_BACKGROUND_TASKS ((void)0)"
+new = "// CIRCUITPY-CHANGE\n#ifndef RUN_BACKGROUND_TASKS\n#define RUN_BACKGROUND_TASKS ((void)0)\n#endif"
+if old not in text:
+    raise SystemExit(f"RUN_BACKGROUND_TASKS anchor not found in {path}")
+path.write_text(text.replace(old, new, 1))
+PY
+    log "  patched: $MPPORT_H"
+fi
+log
+
+if [ "$DRY_RUN" = 1 ]; then
+    log "Dry run complete. Re-run with --apply to write changes."
+elif [ "$APPLY" = 1 ]; then
+    log "Patches applied."
+    log
+    log "Next:"
+    log "  $WORKSPACE_DIR/lv_circuitpython_mod/build_cp_unix.sh"
+    log "  $CP_DIR/ports/unix/build-$VARIANT/micropython $USDL2_MOD_DIR/test_usdl2_cp_unix.py"
+fi
