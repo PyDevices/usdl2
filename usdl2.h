@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// usdl2 — unix-only pydisplay-sized SDL2 subset for MicroPython and CircuitPython.
+// usdl2 — desktop pydisplay-sized SDL2 subset for MicroPython and CircuitPython.
 
 #pragma once
 

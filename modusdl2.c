@@ -5,7 +5,7 @@
 #include "py/runtime.h"
 #include "usdl2.h"
 
-//| """Unix-only SDL2 subset for pydisplay (linked against libSDL2)."""
+//| """Desktop SDL2 subset for pydisplay (linked against libSDL2)."""
 
 static mp_obj_t usdl2_init_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_init(n_args, args);

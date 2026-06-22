@@ -1,22 +1,74 @@
-# MicroPython build glue for usdl2 (unix-only SDL2 subset).
+# MicroPython build glue for usdl2 (desktop SDL2 subset: unix + windows ports).
 #
 # Discovered via USER_C_MODULES pointing at the cmods workspace root.
-# Requires libsdl2-dev (pkg-config sdl2). Only builds on the unix port.
+#
+# Linux/unix: libsdl2-dev + pkg-config sdl2
+# Windows (MinGW): SDL2 official MinGW development zip (not vendored in this repo).
+#   export SDL2_DEV=~/SDL2-2.x.x   # unpacked zip root (x86_64-w64-mingw32/ inside)
+#   See usdl2/README.md. The release .pc files use wrong prefix paths; SDL2_DEV
+#   uses the unpacked directory layout directly.
 
 USDL2_MOD_DIR := $(USERMOD_DIR)
 
-IS_UNIX_PORT := $(findstring /ports/unix,$(abspath $(CURDIR)))
-ifneq ($(IS_UNIX_PORT),)
+PORT_DIR_ABS := $(abspath $(CURDIR))
+IS_UNIX_PORT := $(findstring /ports/unix,$(PORT_DIR_ABS))
+IS_WINDOWS_PORT := $(findstring /ports/windows,$(PORT_DIR_ABS))
 
-SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
-SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+ifneq ($(IS_UNIX_PORT)$(IS_WINDOWS_PORT),)
+
+ifeq ($(IS_WINDOWS_PORT),)
+# Unix: system SDL2 via pkg-config.
+SDL2_CFLAGS ?= $(shell pkg-config --cflags sdl2 2>/dev/null)
+SDL2_LIBS ?= $(shell pkg-config --libs sdl2 2>/dev/null)
+else
+# Windows: static SDL2 for a self-contained .exe (no SDL2.dll beside the binary).
+ifdef SDL2_DEV
+  USDL2_SDL2_TRIPLET ?= x86_64-w64-mingw32
+  ifneq ($(findstring i686-w64-mingw32,$(CROSS_COMPILE)),)
+    USDL2_SDL2_TRIPLET := i686-w64-mingw32
+  endif
+  USDL2_SDL2_PREFIX := $(SDL2_DEV)/$(USDL2_SDL2_TRIPLET)
+  # Console app: no SDL2main / WinMain / -mwindows (micropython already has main()).
+  SDL2_CFLAGS := -I$(USDL2_SDL2_PREFIX)/include/SDL2
+  SDL2_LIBS := -L$(USDL2_SDL2_PREFIX)/lib \
+    $(USDL2_SDL2_PREFIX)/lib/libSDL2.a \
+    -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 \
+    -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid
+else
+  ifndef PKG_CONFIG
+    ifneq ($(findstring x86_64-w64-mingw32,$(CROSS_COMPILE)),)
+      ifneq ($(shell command -v x86_64-w64-mingw32-pkg-config 2>/dev/null),)
+        PKG_CONFIG := x86_64-w64-mingw32-pkg-config
+      else
+        PKG_CONFIG := pkg-config
+      endif
+    else ifneq ($(findstring i686-w64-mingw32,$(CROSS_COMPILE)),)
+      ifneq ($(shell command -v i686-w64-mingw32-pkg-config 2>/dev/null),)
+        PKG_CONFIG := i686-w64-mingw32-pkg-config
+      else
+        PKG_CONFIG := pkg-config
+      endif
+    else
+      PKG_CONFIG := pkg-config
+    endif
+  endif
+  SDL2_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags sdl2 2>/dev/null)
+  SDL2_LIBS ?= $(shell $(PKG_CONFIG) --static --libs sdl2 2>/dev/null)
+endif
+endif
 
 ifeq ($(SDL2_CFLAGS),)
-$(error pkg-config sdl2 failed — install libsdl2-dev)
+$(error usdl2 SDL2 not found — unix: install libsdl2-dev; windows: set SDL2_DEV to unpacked SDL2 MinGW dev zip (see usdl2/README.md))
 endif
 
 CFLAGS_USERMOD += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR) -Wno-sign-compare -Wno-unused-parameter -Wno-shadow
+
+ifeq ($(IS_WINDOWS_PORT),)
 LDFLAGS_USERMOD += $(SDL2_LIBS)
+else
+LIBS_USERMOD += $(SDL2_LIBS)
+LDFLAGS_USERMOD += -static-libgcc
+endif
 
 SRC_USERMOD_C += \
     $(USDL2_MOD_DIR)/modusdl2.c \

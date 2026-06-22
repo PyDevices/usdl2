@@ -3,6 +3,9 @@
 #include "usdl2.h"
 
 #include "py/binary.h"
+
+_Static_assert(sizeof(SDL_Event) == USDL2_EVENT_SIZE,
+    "usdl2: SDL_Event size changed; update USDL2_EVENT_SIZE and event layout");
 #include "py/runtime.h"
 #include <string.h>
 
