@@ -466,5 +466,5 @@ elif [ "$APPLY" = 1 ]; then
     log
     log "Next:"
     log "  $WORKSPACE_DIR/lv_circuitpython_mod/build_cp.sh --port unix --variant $VARIANT"
-    log "  $CP_DIR/ports/unix/build-$VARIANT/micropython $USDL2_MOD_DIR/test_usdl2_cp_unix.py"
+    log "  $CP_DIR/ports/unix/build-$VARIANT/micropython $USDL2_MOD_DIR/test_usdl2.py"
 fi

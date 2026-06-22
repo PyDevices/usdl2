@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Smoke test for usdl2 on CircuitPython unix coverage build."""
+"""Smoke test for usdl2 on unix (MicroPython or CircuitPython)."""
 
 import usdl2
 
