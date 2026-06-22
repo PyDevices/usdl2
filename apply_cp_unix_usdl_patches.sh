@@ -357,11 +357,60 @@ CFLAGS += -DCIRCUITPY_USDL2=1"
 
 variant_mk_anchor() {
     if [ "$VARIANT" = "coverage" ]; then
-        echo "# >>> lv-circuitpython-mod end"
+        if [ -f "$VARIANT_MK" ] && grep -qF '# >>> lv-circuitpython-mod end' "$VARIANT_MK"; then
+            echo "# >>> lv-circuitpython-mod end"
+        else
+            echo "CIRCUITPY_MESSAGE_COMPRESSION_LEVEL = 1"
+        fi
     elif [ "$VARIANT" = "standard" ]; then
         echo 'FROZEN_MANIFEST ?= $(VARIANT_DIR)/manifest.py'
     else
         echo $'-DCIRCUITPY_LOCALE=1 \\'
+    fi
+}
+
+variant_mk_binding_anchor() {
+    if grep -qF $'\tshared-bindings/lvgl/__init__.c \\' "$VARIANT_MK"; then
+        echo $'\tshared-bindings/lvgl/__init__.c \\'
+    else
+        echo $'\tshared-bindings/jpegio/JpegDecoder.c \\'
+    fi
+}
+
+variant_mk_module_anchor() {
+    if grep -qF $'\tshared-module/lvgl/__init__.c \\' "$VARIANT_MK"; then
+        echo $'\tshared-module/lvgl/__init__.c \\'
+    else
+        echo $'\tshared-module/jpegio/JpegDecoder.c \\'
+    fi
+}
+
+variant_h_anchor() {
+    if grep -qF '/* >>> lv-circuitpython-mod end */' "$VARIANT_H"; then
+        echo '/* >>> lv-circuitpython-mod end */'
+    else
+        echo '#include "../mpconfigvariant_common.h"'
+    fi
+}
+
+mpconfig_anchor() {
+    if grep -qF '# >>> lv-circuitpython-mod end' "$MPCONFIG_MK" \
+        && grep -qF 'CIRCUITPY_LVGL' "$MPCONFIG_MK"; then
+        echo "# >>> lv-circuitpython-mod end"
+    elif grep -qF 'CFLAGS += -DCIRCUITPY_LVGL=$(CIRCUITPY_LVGL)' "$MPCONFIG_MK"; then
+        echo 'CFLAGS += -DCIRCUITPY_LVGL=$(CIRCUITPY_LVGL)'
+    else
+        echo 'CFLAGS += -DCIRCUITPY_LOCALE=$(CIRCUITPY_LOCALE)'
+    fi
+}
+
+port_mk_anchor() {
+    if grep -qF '# >>> lv-circuitpython-mod end' "$PORT_MK"; then
+        echo '# >>> lv-circuitpython-mod end'
+    elif grep -qF 'include ../../py/mkenv.mk' "$PORT_MK"; then
+        echo 'include ../../py/mkenv.mk'
+    else
+        echo 'include ../../py/circuitpy_mkenv.mk'
     fi
 }
 
@@ -374,21 +423,21 @@ insert_block_after_line "$VARIANT_MK" "$(variant_mk_anchor)" "$USDL2_ENABLE_BLOC
 log
 
 log "==> Patch unix variant mpconfigvariant.mk (module sources)"
-insert_raw_after_line "$VARIANT_MK" $'\tshared-bindings/lvgl/__init__.c \\' $'\tshared-bindings/usdl2/__init__.c \\'
-insert_raw_after_line "$VARIANT_MK" $'\tshared-module/lvgl/__init__.c \\' $'\tshared-module/usdl2/__init__.c \\'
+insert_raw_after_line "$VARIANT_MK" "$(variant_mk_binding_anchor)" $'\tshared-bindings/usdl2/__init__.c \\'
+insert_raw_after_line "$VARIANT_MK" "$(variant_mk_module_anchor)" $'\tshared-module/usdl2/__init__.c \\'
 log "==> Patch unix variant mpconfigvariant.h (ifndef guard)"
 if [ -f "$VARIANT_H" ]; then
     VARIANT_H_BLOCK="#ifndef CIRCUITPY_USDL2
 #define CIRCUITPY_USDL2 (0)
 #endif"
-    insert_block_after_line "$VARIANT_H" '/* >>> lv-circuitpython-mod end */' "$VARIANT_H_BLOCK"
+    insert_block_after_line "$VARIANT_H" "$(variant_h_anchor)" "$VARIANT_H_BLOCK"
 fi
 log
 
 log "==> Patch py/circuitpy_mpconfig.mk (default off)"
 MPCONFIG_BLOCK="CIRCUITPY_USDL2 ?= 0
 CFLAGS += -DCIRCUITPY_USDL2=\$(CIRCUITPY_USDL2)"
-insert_block_after_line "$MPCONFIG_MK" "CFLAGS += -DCIRCUITPY_LVGL=\$(CIRCUITPY_LVGL)" "$MPCONFIG_BLOCK"
+insert_block_after_line "$MPCONFIG_MK" "$(mpconfig_anchor)" "$MPCONFIG_BLOCK"
 log
 
 log "==> Patch py/circuitpy_defns.mk"
@@ -397,13 +446,17 @@ SRC_PATTERNS += usdl2/%
 endif"
 insert_block_after_line "$DEFNS_MK" "# >>> lv-circuitpython-mod end" "$DEFNS_PATTERNS_BLOCK" "SRC_PATTERNS += usdl2/%"
 
-insert_raw_after_line "$DEFNS_MK" $'\tlvgl/__init__.c \\' $'\tusdl2/__init__.c \\'
+if grep -qF $'\tlvgl/__init__.c \\' "$DEFNS_MK"; then
+    insert_raw_after_line "$DEFNS_MK" $'\tlvgl/__init__.c \\' $'\tusdl2/__init__.c \\'
+else
+    insert_raw_after_line "$DEFNS_MK" $'\tjpegio/JpegDecoder.c \\' $'\tusdl2/__init__.c \\'
+fi
 log
 
 log "==> Patch port Makefile (circuitpython.mk)"
 PORT_BLOCK="USDL2_MOD_DIR := \$(abspath $USDL2_MOD_REL)
 include \$(USDL2_MOD_DIR)/circuitpython.mk"
-insert_block_after_line "$PORT_MK" "# >>> lv-circuitpython-mod end" "$PORT_BLOCK"
+insert_block_after_line "$PORT_MK" "$(port_mk_anchor)" "$PORT_BLOCK"
 log
 
 if [ "$DRY_RUN" = 1 ]; then
@@ -412,6 +465,6 @@ elif [ "$APPLY" = 1 ]; then
     log "Patches applied."
     log
     log "Next:"
-    log "  $WORKSPACE_DIR/lv_circuitpython_mod/build_cp_unix.sh"
+    log "  $WORKSPACE_DIR/lv_circuitpython_mod/build_cp.sh --port unix --variant $VARIANT"
     log "  $CP_DIR/ports/unix/build-$VARIANT/micropython $USDL2_MOD_DIR/test_usdl2_cp_unix.py"
 fi
