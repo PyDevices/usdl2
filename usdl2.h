@@ -22,6 +22,7 @@ uint8_t *usdl2_event_buffer(mp_obj_t self);
 mp_int_t usdl2_event_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags);
 
 mp_obj_t usdl2_init(size_t n_args, const mp_obj_t *args);
+mp_obj_t usdl2_init_subsystem(mp_obj_t flags_in);
 mp_obj_t usdl2_quit(void);
 mp_obj_t usdl2_process_exit(mp_obj_t code_in);
 mp_obj_t usdl2_get_error(void);
@@ -44,4 +45,8 @@ mp_obj_t usdl2_set_texture_blend_mode(size_t n_args, const mp_obj_t *args);
 mp_obj_t usdl2_update_texture(size_t n_args, const mp_obj_t *args);
 mp_obj_t usdl2_poll_event(mp_obj_t event_in);
 mp_obj_t usdl2_get_key_name(mp_obj_t sym_in);
+mp_obj_t usdl2_num_joysticks(void);
+mp_obj_t usdl2_joystick_open(mp_obj_t index_in);
+mp_obj_t usdl2_joystick_close(mp_obj_t joystick_in);
+mp_obj_t usdl2_joystick_instance_id(mp_obj_t joystick_in);
 mp_obj_t usdl2_rect_helper(size_t n_args, const mp_obj_t *args);
