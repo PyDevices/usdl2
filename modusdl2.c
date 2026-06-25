@@ -12,6 +12,11 @@ static mp_obj_t usdl2_init_obj(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(usdl2_init_fun_obj, 1, 1, usdl2_init_obj);
 
+static mp_obj_t usdl2_init_subsystem_obj(mp_obj_t flags_in) {
+    return usdl2_init_subsystem(flags_in);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_init_subsystem_fun_obj, usdl2_init_subsystem_obj);
+
 static mp_obj_t usdl2_quit_obj(void) {
     return usdl2_quit();
 }
@@ -122,6 +127,26 @@ static mp_obj_t usdl2_get_key_name_obj(mp_obj_t sym_in) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_get_key_name_fun_obj, usdl2_get_key_name_obj);
 
+static mp_obj_t usdl2_num_joysticks_obj(void) {
+    return usdl2_num_joysticks();
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(usdl2_num_joysticks_fun_obj, usdl2_num_joysticks_obj);
+
+static mp_obj_t usdl2_joystick_open_obj(mp_obj_t index_in) {
+    return usdl2_joystick_open(index_in);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_joystick_open_fun_obj, usdl2_joystick_open_obj);
+
+static mp_obj_t usdl2_joystick_close_obj(mp_obj_t joystick_in) {
+    return usdl2_joystick_close(joystick_in);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_joystick_close_fun_obj, usdl2_joystick_close_obj);
+
+static mp_obj_t usdl2_joystick_instance_id_obj(mp_obj_t joystick_in) {
+    return usdl2_joystick_instance_id(joystick_in);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_joystick_instance_id_fun_obj, usdl2_joystick_instance_id_obj);
+
 static mp_obj_t usdl2_rect_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_rect_helper(n_args, args);
 }
@@ -130,6 +155,7 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(usdl2_rect_fun_obj, 4, 4, usdl2_rect_
 static const mp_rom_map_elem_t usdl2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_usdl2) },
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&usdl2_init_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_init_subsystem), MP_ROM_PTR(&usdl2_init_subsystem_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_quit), MP_ROM_PTR(&usdl2_quit_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_process_exit), MP_ROM_PTR(&usdl2_process_exit_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_error), MP_ROM_PTR(&usdl2_get_error_fun_obj) },
@@ -152,6 +178,10 @@ static const mp_rom_map_elem_t usdl2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_update_texture), MP_ROM_PTR(&usdl2_update_texture_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_poll_event), MP_ROM_PTR(&usdl2_poll_event_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_key_name), MP_ROM_PTR(&usdl2_get_key_name_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_num_joysticks), MP_ROM_PTR(&usdl2_num_joysticks_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_joystick_open), MP_ROM_PTR(&usdl2_joystick_open_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_joystick_close), MP_ROM_PTR(&usdl2_joystick_close_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_joystick_instance_id), MP_ROM_PTR(&usdl2_joystick_instance_id_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_rect), MP_ROM_PTR(&usdl2_rect_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_Event), MP_ROM_PTR(&usdl2_event_type) },
 };

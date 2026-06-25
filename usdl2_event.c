@@ -41,6 +41,16 @@ static int32_t usdl2_read_i32(const uint8_t *data, uint16_t offset) {
     return value;
 }
 
+static int16_t usdl2_read_i16(const uint8_t *data, uint16_t offset) {
+    int16_t value;
+    memcpy(&value, data + offset, sizeof(value));
+    return value;
+}
+
+static bool usdl2_is_joystick_event(uint32_t type) {
+    return type >= SDL_JOYAXISMOTION && type <= SDL_JOYDEVICEREMOVED;
+}
+
 static mp_obj_t usdl2_subview_make(mp_obj_t parent, uint16_t offset) {
     usdl2_subview_obj_t *view = mp_obj_malloc(usdl2_subview_obj_t, &usdl2_subview_type);
     view->parent = parent;
@@ -62,30 +72,56 @@ static void usdl2_subview_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
             dest[0] = mp_obj_new_int_from_uint(usdl2_read_u32(data, base + 0));
             return;
         case MP_QSTR_which:
-            dest[0] = mp_obj_new_int_from_uint(usdl2_read_u32(data, base + 4));
+            if (usdl2_is_joystick_event(usdl2_read_u32(data, 0))) {
+                dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 0));
+            } else {
+                dest[0] = mp_obj_new_int_from_uint(usdl2_read_u32(data, base + 4));
+            }
             return;
-        case MP_QSTR_state:
-            if (base == 8 && usdl2_read_u32(data, 0) == SDL_MOUSEMOTION) {
+        case MP_QSTR_state: {
+            uint32_t type = usdl2_read_u32(data, 0);
+            if (base == 8 && type == SDL_MOUSEMOTION) {
                 dest[0] = mp_obj_new_int_from_uint(usdl2_read_u32(data, base + 8));
+            } else if (type == SDL_JOYBUTTONDOWN || type == SDL_JOYBUTTONUP) {
+                dest[0] = mp_obj_new_int(data[base + 5]);
             } else {
                 dest[0] = mp_obj_new_int_from_uint(data[base + 4]);
             }
             return;
+        }
         case MP_QSTR_x:
             dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 12));
             return;
         case MP_QSTR_y:
             dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 16));
             return;
-        case MP_QSTR_xrel:
-            dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 20));
+        case MP_QSTR_xrel: {
+            uint32_t type = usdl2_read_u32(data, 0);
+            if (type == SDL_JOYBALLMOTION) {
+                dest[0] = mp_obj_new_int(usdl2_read_i16(data, base + 8));
+            } else {
+                dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 20));
+            }
             return;
-        case MP_QSTR_yrel:
-            dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 24));
+        }
+        case MP_QSTR_yrel: {
+            uint32_t type = usdl2_read_u32(data, 0);
+            if (type == SDL_JOYBALLMOTION) {
+                dest[0] = mp_obj_new_int(usdl2_read_i16(data, base + 10));
+            } else {
+                dest[0] = mp_obj_new_int(usdl2_read_i32(data, base + 24));
+            }
             return;
-        case MP_QSTR_button:
-            dest[0] = mp_obj_new_int(data[base + 8]);
+        }
+        case MP_QSTR_button: {
+            uint32_t type = usdl2_read_u32(data, 0);
+            if (type == SDL_JOYBUTTONDOWN || type == SDL_JOYBUTTONUP) {
+                dest[0] = mp_obj_new_int(data[base + 4]);
+            } else {
+                dest[0] = mp_obj_new_int(data[base + 8]);
+            }
             return;
+        }
         case MP_QSTR_clicks:
             dest[0] = mp_obj_new_int(data[base + 10]);
             return;
@@ -118,6 +154,26 @@ static void usdl2_subview_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
             return;
         case MP_QSTR_mod:
             dest[0] = mp_obj_new_int_from_uint(usdl2_read_u32(data, base + 8) & 0xffff);
+            return;
+        case MP_QSTR_axis:
+            dest[0] = mp_obj_new_int(data[base + 4]);
+            return;
+        case MP_QSTR_value: {
+            uint32_t type = usdl2_read_u32(data, 0);
+            if (type == SDL_JOYAXISMOTION) {
+                dest[0] = mp_obj_new_int(usdl2_read_i16(data, base + 8));
+            } else if (type == SDL_JOYHATMOTION) {
+                dest[0] = mp_obj_new_int(data[base + 5]);
+            } else {
+                dest[0] = MP_OBJ_NULL;
+            }
+            return;
+        }
+        case MP_QSTR_ball:
+            dest[0] = mp_obj_new_int(data[base + 4]);
+            return;
+        case MP_QSTR_hat:
+            dest[0] = mp_obj_new_int(data[base + 4]);
             return;
         default:
             dest[0] = MP_OBJ_NULL;
@@ -179,6 +235,10 @@ static void usdl2_event_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
         case MP_QSTR_key:
         case MP_QSTR_button:
         case MP_QSTR_wheel:
+        case MP_QSTR_jaxis:
+        case MP_QSTR_jball:
+        case MP_QSTR_jhat:
+        case MP_QSTR_jbutton:
             dest[0] = usdl2_subview_make(self_in, 8);
             return;
         default:

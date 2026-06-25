@@ -52,6 +52,11 @@ mp_obj_t usdl2_init(size_t n_args, const mp_obj_t *args) {
     return mp_obj_new_int(rc);
 }
 
+mp_obj_t usdl2_init_subsystem(mp_obj_t flags_in) {
+    int rc = SDL_InitSubSystem((Uint32)mp_obj_get_int(flags_in));
+    return mp_obj_new_int(rc);
+}
+
 mp_obj_t usdl2_quit(void) {
     SDL_Quit();
     return mp_const_none;
@@ -269,6 +274,24 @@ mp_obj_t usdl2_get_key_name(mp_obj_t sym_in) {
         return mp_obj_new_str("", 0);
     }
     return mp_obj_new_str(name, strlen(name));
+}
+
+mp_obj_t usdl2_num_joysticks(void) {
+    return mp_obj_new_int(SDL_NumJoysticks());
+}
+
+mp_obj_t usdl2_joystick_open(mp_obj_t index_in) {
+    SDL_Joystick *joystick = SDL_JoystickOpen((int)mp_obj_get_int(index_in));
+    return usdl2_ptr_obj(joystick);
+}
+
+mp_obj_t usdl2_joystick_close(mp_obj_t joystick_in) {
+    SDL_JoystickClose((SDL_Joystick *)usdl2_ptr_from_obj(joystick_in));
+    return mp_const_none;
+}
+
+mp_obj_t usdl2_joystick_instance_id(mp_obj_t joystick_in) {
+    return mp_obj_new_int(SDL_JoystickInstanceID((SDL_Joystick *)usdl2_ptr_from_obj(joystick_in)));
 }
 
 mp_obj_t usdl2_rect_helper(size_t n_args, const mp_obj_t *args) {
