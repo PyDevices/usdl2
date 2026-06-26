@@ -35,25 +35,24 @@ ifdef SDL2_DEV
     -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 \
     -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid
 else
-  ifndef PKG_CONFIG
-    ifneq ($(findstring x86_64-w64-mingw32,$(CROSS_COMPILE)),)
-      ifneq ($(shell command -v x86_64-w64-mingw32-pkg-config 2>/dev/null),)
-        PKG_CONFIG := x86_64-w64-mingw32-pkg-config
-      else
-        PKG_CONFIG := pkg-config
-      endif
-    else ifneq ($(findstring i686-w64-mingw32,$(CROSS_COMPILE)),)
-      ifneq ($(shell command -v i686-w64-mingw32-pkg-config 2>/dev/null),)
-        PKG_CONFIG := i686-w64-mingw32-pkg-config
-      else
-        PKG_CONFIG := pkg-config
-      endif
-    else
-      PKG_CONFIG := pkg-config
+  # Without SDL2_DEV, only a MinGW pkg-config is valid — never host Linux sdl2.pc
+  # (Debian's /usr/include/SDL2/SDL_config.h indirection breaks cross-compiles).
+  USDL2_MINGW_PKG_CONFIG :=
+  ifneq ($(findstring x86_64-w64-mingw32,$(CROSS_COMPILE)),)
+    ifneq ($(shell command -v x86_64-w64-mingw32-pkg-config 2>/dev/null),)
+      USDL2_MINGW_PKG_CONFIG := x86_64-w64-mingw32-pkg-config
+    endif
+  else ifneq ($(findstring i686-w64-mingw32,$(CROSS_COMPILE)),)
+    ifneq ($(shell command -v i686-w64-mingw32-pkg-config 2>/dev/null),)
+      USDL2_MINGW_PKG_CONFIG := i686-w64-mingw32-pkg-config
     endif
   endif
-  SDL2_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags sdl2 2>/dev/null)
-  SDL2_LIBS ?= $(shell $(PKG_CONFIG) --static --libs sdl2 2>/dev/null)
+  ifneq ($(USDL2_MINGW_PKG_CONFIG),)
+    SDL2_CFLAGS ?= $(shell $(USDL2_MINGW_PKG_CONFIG) --cflags sdl2 2>/dev/null)
+    SDL2_LIBS ?= $(shell $(USDL2_MINGW_PKG_CONFIG) --static --libs sdl2 2>/dev/null)
+  else
+    $(error usdl2 windows port requires SDL2_DEV=path to unpacked SDL2 MinGW development ZIP — see usdl2/README.md)
+  endif
 endif
 endif
 
