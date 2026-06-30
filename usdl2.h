@@ -12,6 +12,44 @@
 extern const mp_obj_type_t usdl2_event_type;
 extern const mp_obj_type_t usdl2_timer_cb_type;
 
+// Binding fun objs referenced by usdl2_module_globals.inc (CP shared-bindings + MP).
+extern const mp_obj_fun_builtin_var_t usdl2_SDL_DEFINE_PIXELFORMAT_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_Init_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_InitSubSystem_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_Quit_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t process_exit_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_GetError_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_CreateWindow_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_DestroyWindow_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_SetWindowSize_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_CreateRenderer_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_DestroyRenderer_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_SetRenderDrawColor_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_SetRenderTarget_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_RenderClear_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_RenderCopy_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_RenderCopyEx_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_RenderPresent_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_RenderFillRect_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_RenderSetLogicalSize_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_CreateTexture_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_DestroyTexture_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_SetTextureBlendMode_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_UpdateTexture_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_PollEvent_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_GetKeyName_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_NumJoysticks_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_JoystickOpen_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_JoystickClose_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_JoystickInstanceID_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_Rect_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_Point_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_Event_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_TimerCallback_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_AddTimer_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t SDL_RemoveTimer_fun_obj;
+extern const mp_obj_fun_builtin_fixed_t pump_scheduler_fun_obj;
+
 void *usdl2_ptr_from_obj(mp_obj_t obj);
 mp_obj_t usdl2_ptr_obj(void *ptr);
 bool usdl2_obj_is_none_or_null(mp_obj_t obj);
@@ -57,6 +95,7 @@ mp_obj_t usdl2_window_title(mp_obj_t title_in);
 mp_obj_t usdl2_timer_callback(mp_obj_t callback_in);
 mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args);
 mp_obj_t usdl2_remove_timer(mp_obj_t timer_in);
+mp_obj_t usdl2_pump_scheduler(mp_obj_t max_in);
 
 #define USDL2_DEFINE_PIXELFORMAT(type, order, layout, bits, bytes) \
     ((1 << 28) | ((type) << 24) | ((order) << 20) | ((layout) << 16) | ((bits) << 8) | (bytes))

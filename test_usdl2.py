@@ -79,6 +79,8 @@ assert usdl2.SDL_Event(btn_evt) is btn_evt
 # Timer API (multimer / pydisplay)
 assert usdl2.SDL_INIT_TIMER == 0x00000001
 assert usdl2.SDL_Init(usdl2.SDL_INIT_TIMER) == 0
+assert usdl2.SDL_InitSubSystem(usdl2.SDL_INIT_TIMER) == 0
+assert callable(usdl2.pump_scheduler)
 
 _timer_ticks = []
 

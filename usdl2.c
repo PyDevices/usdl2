@@ -4,6 +4,7 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 #include "py/binary.h"
+#include "py/mphal.h"
 #include "usdl2.h"
 
 #include <string.h>
@@ -677,7 +678,7 @@ static mp_obj_t usdl2_timer_dispatch(mp_obj_t slot_in) {
     mp_call_function_n_kw(entry->callback, 2, 0, args);
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(usdl2_timer_dispatch_obj, usdl2_timer_dispatch);
+MP_DEFINE_CONST_FUN_OBJ_1(usdl2_timer_dispatch_obj, usdl2_timer_dispatch);
 
 static Uint32 SDLCALL usdl2_timer_trampoline(Uint32 interval, void *param) {
     usdl2_timer_entry_t *entry = (usdl2_timer_entry_t *)param;
@@ -694,7 +695,7 @@ static Uint32 SDLCALL usdl2_timer_trampoline(Uint32 interval, void *param) {
         mp_printf(MICROPY_ERROR_PRINTER, "SDL timer schedule queue full\n");
     }
     #else
-    (void)interval;
+    usdl2_timer_dispatch(MP_OBJ_NEW_SMALL_INT(entry->slot));
     #endif
 
     return entry->interval;
@@ -745,6 +746,36 @@ mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args) {
     return usdl2_ptr_obj((void *)(uintptr_t)entry->id);
 }
 
+mp_obj_t usdl2_pump_scheduler(mp_obj_t max_in) {
+    mp_int_t limit = 128;
+    if (max_in != mp_const_none) {
+        limit = mp_obj_get_int(max_in);
+        if (limit < 0) {
+            limit = 128;
+        }
+    }
+
+    mp_int_t ran = 0;
+    for (mp_int_t i = 0; i < limit; i++) {
+        #if MICROPY_ENABLE_SCHEDULER
+        if (mp_sched_num_pending() == 0) {
+            break;
+        }
+        mp_uint_t atomic_state = MICROPY_BEGIN_ATOMIC_SECTION();
+        if (MP_STATE_VM(sched_state) == MP_SCHED_IDLE) {
+            MP_STATE_VM(sched_state) = MP_SCHED_PENDING;
+        }
+        MICROPY_END_ATOMIC_SECTION(atomic_state);
+        #else
+        break;
+        #endif
+        mp_handle_pending(true);
+        ran++;
+    }
+
+    return mp_obj_new_int(ran);
+}
+
 mp_obj_t usdl2_remove_timer(mp_obj_t timer_in) {
     SDL_TimerID id = (SDL_TimerID)(uintptr_t)usdl2_ptr_from_obj(timer_in);
     usdl2_timer_entry_t *entry = usdl2_timer_find(id);
@@ -767,219 +798,191 @@ MP_DEFINE_CONST_OBJ_TYPE(
 
 MP_REGISTER_ROOT_POINTER(struct usdl2_timer_entry *usdl2_timer_list);
 
-// --- Module registration -----------------------------------------
-
-//| """Desktop SDL2 subset for pydisplay (linked against libSDL2)."""
+// --- Module bindings (shared by MP and CP) -----------------------
 
 static mp_obj_t SDL_Init_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_init(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Init_fun_obj, 1, 1, SDL_Init_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Init_fun_obj, 1, 1, SDL_Init_obj);
 
 static mp_obj_t SDL_InitSubSystem_obj(mp_obj_t flags_in) {
     return usdl2_init_subsystem(flags_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_InitSubSystem_fun_obj, SDL_InitSubSystem_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_InitSubSystem_fun_obj, SDL_InitSubSystem_obj);
 
 static mp_obj_t SDL_Quit_obj(void) {
     return usdl2_quit();
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(SDL_Quit_fun_obj, SDL_Quit_obj);
+MP_DEFINE_CONST_FUN_OBJ_0(SDL_Quit_fun_obj, SDL_Quit_obj);
 
 static mp_obj_t process_exit_obj(mp_obj_t code_in) {
     return usdl2_process_exit(code_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(process_exit_fun_obj, process_exit_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(process_exit_fun_obj, process_exit_obj);
 
 static mp_obj_t SDL_GetError_obj(void) {
     return usdl2_get_error();
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(SDL_GetError_fun_obj, SDL_GetError_obj);
+MP_DEFINE_CONST_FUN_OBJ_0(SDL_GetError_fun_obj, SDL_GetError_obj);
 
 static mp_obj_t SDL_CreateWindow_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_create_window(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_CreateWindow_fun_obj, 6, 6, SDL_CreateWindow_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_CreateWindow_fun_obj, 6, 6, SDL_CreateWindow_obj);
 
 static mp_obj_t SDL_DestroyWindow_obj(mp_obj_t win_in) {
     return usdl2_destroy_window(win_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_DestroyWindow_fun_obj, SDL_DestroyWindow_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_DestroyWindow_fun_obj, SDL_DestroyWindow_obj);
 
 static mp_obj_t SDL_SetWindowSize_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_set_window_size(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetWindowSize_fun_obj, 3, 3, SDL_SetWindowSize_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetWindowSize_fun_obj, 3, 3, SDL_SetWindowSize_obj);
 
 static mp_obj_t SDL_CreateRenderer_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_create_renderer(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_CreateRenderer_fun_obj, 3, 3, SDL_CreateRenderer_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_CreateRenderer_fun_obj, 3, 3, SDL_CreateRenderer_obj);
 
 static mp_obj_t SDL_DestroyRenderer_obj(mp_obj_t renderer_in) {
     return usdl2_destroy_renderer(renderer_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_DestroyRenderer_fun_obj, SDL_DestroyRenderer_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_DestroyRenderer_fun_obj, SDL_DestroyRenderer_obj);
 
 static mp_obj_t SDL_SetRenderDrawColor_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_set_render_draw_color(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetRenderDrawColor_fun_obj, 5, 5, SDL_SetRenderDrawColor_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetRenderDrawColor_fun_obj, 5, 5, SDL_SetRenderDrawColor_obj);
 
 static mp_obj_t SDL_SetRenderTarget_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_set_render_target(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetRenderTarget_fun_obj, 2, 2, SDL_SetRenderTarget_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetRenderTarget_fun_obj, 2, 2, SDL_SetRenderTarget_obj);
 
 static mp_obj_t SDL_RenderClear_obj(mp_obj_t renderer_in) {
     return usdl2_render_clear(renderer_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_RenderClear_fun_obj, SDL_RenderClear_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_RenderClear_fun_obj, SDL_RenderClear_obj);
 
 static mp_obj_t SDL_RenderCopy_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_render_copy(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderCopy_fun_obj, 4, 4, SDL_RenderCopy_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderCopy_fun_obj, 4, 4, SDL_RenderCopy_obj);
 
 static mp_obj_t SDL_RenderCopyEx_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_render_copy_ex(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderCopyEx_fun_obj, 7, 7, SDL_RenderCopyEx_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderCopyEx_fun_obj, 7, 7, SDL_RenderCopyEx_obj);
 
 static mp_obj_t SDL_RenderPresent_obj(mp_obj_t renderer_in) {
     return usdl2_render_present(renderer_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_RenderPresent_fun_obj, SDL_RenderPresent_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_RenderPresent_fun_obj, SDL_RenderPresent_obj);
 
 static mp_obj_t SDL_RenderFillRect_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_render_fill_rect(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderFillRect_fun_obj, 2, 2, SDL_RenderFillRect_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderFillRect_fun_obj, 2, 2, SDL_RenderFillRect_obj);
 
 static mp_obj_t SDL_RenderSetLogicalSize_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_render_set_logical_size(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderSetLogicalSize_fun_obj, 3, 3, SDL_RenderSetLogicalSize_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_RenderSetLogicalSize_fun_obj, 3, 3, SDL_RenderSetLogicalSize_obj);
 
 static mp_obj_t SDL_CreateTexture_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_create_texture(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_CreateTexture_fun_obj, 5, 5, SDL_CreateTexture_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_CreateTexture_fun_obj, 5, 5, SDL_CreateTexture_obj);
 
 static mp_obj_t SDL_DestroyTexture_obj(mp_obj_t texture_in) {
     return usdl2_destroy_texture(texture_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_DestroyTexture_fun_obj, SDL_DestroyTexture_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_DestroyTexture_fun_obj, SDL_DestroyTexture_obj);
 
 static mp_obj_t SDL_SetTextureBlendMode_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_set_texture_blend_mode(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetTextureBlendMode_fun_obj, 2, 2, SDL_SetTextureBlendMode_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetTextureBlendMode_fun_obj, 2, 2, SDL_SetTextureBlendMode_obj);
 
 static mp_obj_t SDL_UpdateTexture_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_update_texture(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_UpdateTexture_fun_obj, 4, 4, SDL_UpdateTexture_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_UpdateTexture_fun_obj, 4, 4, SDL_UpdateTexture_obj);
 
 static mp_obj_t SDL_PollEvent_obj(mp_obj_t event_in) {
     return usdl2_poll_event(event_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_PollEvent_fun_obj, SDL_PollEvent_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_PollEvent_fun_obj, SDL_PollEvent_obj);
 
 static mp_obj_t SDL_GetKeyName_obj(mp_obj_t sym_in) {
     return usdl2_get_key_name(sym_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_GetKeyName_fun_obj, SDL_GetKeyName_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_GetKeyName_fun_obj, SDL_GetKeyName_obj);
 
 static mp_obj_t SDL_NumJoysticks_obj(void) {
     return usdl2_num_joysticks();
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(SDL_NumJoysticks_fun_obj, SDL_NumJoysticks_obj);
+MP_DEFINE_CONST_FUN_OBJ_0(SDL_NumJoysticks_fun_obj, SDL_NumJoysticks_obj);
 
 static mp_obj_t SDL_JoystickOpen_obj(mp_obj_t index_in) {
     return usdl2_joystick_open(index_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_JoystickOpen_fun_obj, SDL_JoystickOpen_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_JoystickOpen_fun_obj, SDL_JoystickOpen_obj);
 
 static mp_obj_t SDL_JoystickClose_obj(mp_obj_t joystick_in) {
     return usdl2_joystick_close(joystick_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_JoystickClose_fun_obj, SDL_JoystickClose_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_JoystickClose_fun_obj, SDL_JoystickClose_obj);
 
 static mp_obj_t SDL_JoystickInstanceID_obj(mp_obj_t joystick_in) {
     return usdl2_joystick_instance_id(joystick_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_JoystickInstanceID_fun_obj, SDL_JoystickInstanceID_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_JoystickInstanceID_fun_obj, SDL_JoystickInstanceID_obj);
 
 static mp_obj_t SDL_Rect_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_rect_helper(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Rect_fun_obj, 0, 4, SDL_Rect_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Rect_fun_obj, 0, 4, SDL_Rect_obj);
 
 static mp_obj_t SDL_Point_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_point_helper(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Point_fun_obj, 0, 2, SDL_Point_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Point_fun_obj, 0, 2, SDL_Point_obj);
 
 static mp_obj_t SDL_Event_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_event_helper(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Event_fun_obj, 0, 1, SDL_Event_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Event_fun_obj, 0, 1, SDL_Event_obj);
 
 static mp_obj_t SDL_TimerCallback_obj(mp_obj_t callback_in) {
     return usdl2_timer_callback(callback_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_TimerCallback_fun_obj, SDL_TimerCallback_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_TimerCallback_fun_obj, SDL_TimerCallback_obj);
 
 static mp_obj_t SDL_AddTimer_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_add_timer(n_args, args);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_AddTimer_fun_obj, 3, 3, SDL_AddTimer_obj);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_AddTimer_fun_obj, 3, 3, SDL_AddTimer_obj);
 
 static mp_obj_t SDL_RemoveTimer_obj(mp_obj_t timer_in) {
     return usdl2_remove_timer(timer_in);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(SDL_RemoveTimer_fun_obj, SDL_RemoveTimer_obj);
+MP_DEFINE_CONST_FUN_OBJ_1(SDL_RemoveTimer_fun_obj, SDL_RemoveTimer_obj);
+
+static mp_obj_t pump_scheduler_obj(mp_obj_t max_in) {
+    return usdl2_pump_scheduler(max_in);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(pump_scheduler_fun_obj, pump_scheduler_obj);
+
+// --- Module registration (MicroPython only; CP uses shared-bindings/usdl2/__init.c) ---
+
+#if !CIRCUITPY
+
+//| """Desktop SDL2 subset for pydisplay (linked against libSDL2)."""
 
 static const mp_rom_map_elem_t usdl2_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_usdl2) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_Init), MP_ROM_PTR(&SDL_Init_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_InitSubSystem), MP_ROM_PTR(&SDL_InitSubSystem_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_Quit), MP_ROM_PTR(&SDL_Quit_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_process_exit), MP_ROM_PTR(&process_exit_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_GetError), MP_ROM_PTR(&SDL_GetError_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_CreateWindow), MP_ROM_PTR(&SDL_CreateWindow_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_DestroyWindow), MP_ROM_PTR(&SDL_DestroyWindow_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_SetWindowSize), MP_ROM_PTR(&SDL_SetWindowSize_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_CreateRenderer), MP_ROM_PTR(&SDL_CreateRenderer_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_DestroyRenderer), MP_ROM_PTR(&SDL_DestroyRenderer_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_SetRenderDrawColor), MP_ROM_PTR(&SDL_SetRenderDrawColor_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_SetRenderTarget), MP_ROM_PTR(&SDL_SetRenderTarget_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RenderClear), MP_ROM_PTR(&SDL_RenderClear_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RenderCopy), MP_ROM_PTR(&SDL_RenderCopy_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RenderCopyEx), MP_ROM_PTR(&SDL_RenderCopyEx_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RenderPresent), MP_ROM_PTR(&SDL_RenderPresent_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RenderFillRect), MP_ROM_PTR(&SDL_RenderFillRect_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RenderSetLogicalSize), MP_ROM_PTR(&SDL_RenderSetLogicalSize_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_CreateTexture), MP_ROM_PTR(&SDL_CreateTexture_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_DestroyTexture), MP_ROM_PTR(&SDL_DestroyTexture_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_SetTextureBlendMode), MP_ROM_PTR(&SDL_SetTextureBlendMode_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_UpdateTexture), MP_ROM_PTR(&SDL_UpdateTexture_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_PollEvent), MP_ROM_PTR(&SDL_PollEvent_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_GetKeyName), MP_ROM_PTR(&SDL_GetKeyName_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_NumJoysticks), MP_ROM_PTR(&SDL_NumJoysticks_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_JoystickOpen), MP_ROM_PTR(&SDL_JoystickOpen_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_JoystickClose), MP_ROM_PTR(&SDL_JoystickClose_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_JoystickInstanceID), MP_ROM_PTR(&SDL_JoystickInstanceID_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_Rect), MP_ROM_PTR(&SDL_Rect_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_Point), MP_ROM_PTR(&SDL_Point_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_Event), MP_ROM_PTR(&SDL_Event_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_TimerCallback), MP_ROM_PTR(&SDL_TimerCallback_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_AddTimer), MP_ROM_PTR(&SDL_AddTimer_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_RemoveTimer), MP_ROM_PTR(&SDL_RemoveTimer_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_Event), MP_ROM_PTR(&usdl2_event_type) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_DEFINE_PIXELFORMAT), MP_ROM_PTR(&usdl2_SDL_DEFINE_PIXELFORMAT_fun_obj) },
-    USDL2_CONSTANTS_TABLE
+#include "usdl2_module_globals.inc"
 };
 
 static MP_DEFINE_CONST_DICT(usdl2_module_globals, usdl2_module_globals_table);
@@ -990,4 +993,6 @@ const mp_obj_module_t usdl2_module = {
 };
 
 MP_REGISTER_MODULE(MP_QSTR_usdl2, usdl2_module);
+
+#endif
 

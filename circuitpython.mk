@@ -19,6 +19,8 @@ endif
 CFLAGS += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR) -DCIRCUITPY_USDL2=1
 LDFLAGS += $(SDL2_LIBS)
 
+QSTR_DEFS += $(USDL2_MOD_DIR)/usdl2_qstrdefs.h
+
 USDL2_SOURCES := $(USDL2_MOD_DIR)/usdl2.c
 
 USDL2_SUPPRESS_CFLAGS := -Wno-sign-compare -Wno-unused-parameter -Wno-shadow

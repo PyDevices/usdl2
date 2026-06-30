@@ -2,7 +2,7 @@
 
 Desktop native module: a **subset** of libSDL2 for pydisplay (`import usdl2`). Works on MicroPython **unix** and **windows** ports, and CircuitPython unix builds.
 
-The module exports the same SDL2-style names as pydisplay's `_sdl2_lib` (`SDL_Init`, `SDL_CreateWindow`, `SDL_Rect`, `SDL_Event`, constants, timers, etc.) from a single native `usdl2` built-in module.
+The module exports the same SDL2-style names as pydisplay's `displaysys.sdldisplay._sdl2` (`SDL_Init`, `SDL_CreateWindow`, `SDL_Rect`, `SDL_Event`, constants, timers, etc.) from a single native `usdl2` built-in module. pydisplay loads it first in both **`displaysys.sdldisplay._sdl2`** (display, input, rendering) and **`multimer._sdl2`** (SDL timer backend on CPython when POSIX and threading backends are unavailable).
 
 ## SDL2 at build time
 
@@ -79,8 +79,8 @@ Embedded ports are unaffected (`CIRCUITPY_USDL2` defaults to 0 on CircuitPython)
 
 | File | Role |
 |------|------|
-| `usdl2.c`, `usdl2.h` | Native module: SDL bindings, constants, events, timers |
-| `micropython.mk` | MicroPython user C module glue |
-| `circuitpython.mk` | CircuitPython port Makefile fragment |
+| `usdl2.c`, `usdl2.h`, `usdl2_module_globals.inc` | Native module: SDL bindings, constants, events, timers |
+| `micropython.mk` | MicroPython user C module glue (`MP_REGISTER_MODULE` in `usdl2.c`) |
+| `circuitpython.mk` | CircuitPython port Makefile fragment (`usdl2.c` only; module registration in `shared-bindings/usdl2/__init.c`) |
 | `circuitpython_spike/` | Templates copied into CircuitPython tree |
 | `test_usdl2.py` | Smoke test (both runtimes) |
