@@ -19,7 +19,7 @@ endif
 CFLAGS += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR) -DCIRCUITPY_USDL2=1
 LDFLAGS += $(SDL2_LIBS)
 
-USDL2_SOURCES := $(USDL2_MOD_DIR)/modusdl2.c $(USDL2_MOD_DIR)/usdl2_wrappers.c $(USDL2_MOD_DIR)/usdl2_event.c
+USDL2_SOURCES := $(USDL2_MOD_DIR)/usdl2.c
 
 USDL2_SUPPRESS_CFLAGS := -Wno-sign-compare -Wno-unused-parameter -Wno-shadow
 $(foreach _usdl,$(USDL2_SOURCES),$(eval $(BUILD)/$(_usdl:.c=.o): CFLAGS += $(USDL2_SUPPRESS_CFLAGS)))

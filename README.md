@@ -2,6 +2,8 @@
 
 Desktop native module: a **subset** of libSDL2 for pydisplay (`import usdl2`). Works on MicroPython **unix** and **windows** ports, and CircuitPython unix builds.
 
+The module exports the same SDL2-style names as pydisplay's `_sdl2_lib` (`SDL_Init`, `SDL_CreateWindow`, `SDL_Rect`, `SDL_Event`, constants, timers, etc.) from a single native `usdl2` built-in module.
+
 ## SDL2 at build time
 
 ### Linux / unix port
@@ -45,7 +47,7 @@ git clone https://github.com/PyDevices/usdl2.git
 ```bash
 export SDL2_DEV=~/SDL2-2.30.10
 ./build_mp.sh --port windows --variant standard
-# Run on Windows (not Wine):
+# Run from WSL (or native Windows):
 #   micropython/ports/windows/build-standard/micropython.exe usdl2/test_usdl2.py
 ```
 
@@ -77,8 +79,7 @@ Embedded ports are unaffected (`CIRCUITPY_USDL2` defaults to 0 on CircuitPython)
 
 | File | Role |
 |------|------|
-| `usdl2.h`, `usdl2_wrappers.c`, `usdl2_event.c` | Shared SDL bindings |
-| `modusdl2.c` | Module registration (both runtimes) |
+| `usdl2.c`, `usdl2.h` | Native module: SDL bindings, constants, events, timers |
 | `micropython.mk` | MicroPython user C module glue |
 | `circuitpython.mk` | CircuitPython port Makefile fragment |
 | `circuitpython_spike/` | Templates copied into CircuitPython tree |

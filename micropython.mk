@@ -69,9 +69,6 @@ LIBS_USERMOD += $(SDL2_LIBS)
 LDFLAGS_USERMOD += -static-libgcc
 endif
 
-SRC_USERMOD_C += \
-    $(USDL2_MOD_DIR)/modusdl2.c \
-    $(USDL2_MOD_DIR)/usdl2_wrappers.c \
-    $(USDL2_MOD_DIR)/usdl2_event.c
+SRC_USERMOD_C += $(USDL2_MOD_DIR)/usdl2.c
 
 endif

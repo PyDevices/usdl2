@@ -5,21 +5,28 @@ import struct
 import usdl2
 
 # SDL_INIT_VIDEO
-assert usdl2.init(0x00000020) == 0
+assert usdl2.SDL_INIT_VIDEO == 0x00000020
+assert usdl2.SDL_Init(usdl2.SDL_INIT_VIDEO) == 0
 
 # Joystick subsystem API (parity with pydisplay sdldisplay PR #37)
-assert usdl2.init_subsystem(0x00000200) == 0
-assert isinstance(usdl2.num_joysticks(), int)
+assert usdl2.SDL_InitSubSystem(usdl2.SDL_INIT_JOYSTICK) == 0
+assert isinstance(usdl2.SDL_NumJoysticks(), int)
 
-win = usdl2.create_window("usdl2 test", 100, 100, 320, 240, 0)
+win = usdl2.SDL_CreateWindow("usdl2 test", 100, 100, 320, 240, 0)
 assert win
 
-renderer = usdl2.create_renderer(win, -1, 0x00000002)
+renderer = usdl2.SDL_CreateRenderer(win, -1, usdl2.SDL_RENDERER_ACCELERATED)
 assert renderer
 
-usdl2.set_render_draw_color(renderer, 32, 64, 128, 255)
-usdl2.render_clear(renderer)
-usdl2.render_present(renderer)
+usdl2.SDL_SetRenderDrawColor(renderer, 32, 64, 128, 255)
+usdl2.SDL_RenderClear(renderer)
+usdl2.SDL_RenderPresent(renderer)
+
+# SDL_Rect / SDL_Point helpers
+rect = usdl2.SDL_Rect(1, 2, 3, 4)
+assert len(rect) == 16
+point = usdl2.SDL_Point(5, 6)
+assert len(point) == 8
 
 # Synthetic joystick events: verify Event subviews match SDL2 layout.
 def _pack_event(event_type, payload):
@@ -30,7 +37,7 @@ def _pack_event(event_type, payload):
 
 
 axis_evt = _pack_event(
-    0x600,
+    usdl2.SDL_JOYAXISMOTION,
     struct.pack("<iBxxxh", 1, 2, -16384),
 )
 assert axis_evt.jaxis.which == 1
@@ -38,7 +45,7 @@ assert axis_evt.jaxis.axis == 2
 assert axis_evt.jaxis.value == -16384
 
 ball_evt = _pack_event(
-    0x601,
+    usdl2.SDL_JOYBALLMOTION,
     struct.pack("<iBxxxhh", 3, 1, 10, -5),
 )
 assert ball_evt.jball.which == 3
@@ -47,7 +54,7 @@ assert ball_evt.jball.xrel == 10
 assert ball_evt.jball.yrel == -5
 
 hat_evt = _pack_event(
-    0x602,
+    usdl2.SDL_JOYHATMOTION,
     struct.pack("<iBBxx", 4, 0, 0x05),
 )
 assert hat_evt.jhat.which == 4
@@ -55,20 +62,55 @@ assert hat_evt.jhat.hat == 0
 assert hat_evt.jhat.value == 0x05
 
 btn_evt = _pack_event(
-    0x603,
-    struct.pack("<iBBBB", 5, 7, 1, 0),
+    usdl2.SDL_JOYBUTTONDOWN,
+    struct.pack("<iBBBB", 5, 7, 1, 0, 0),
 )
 assert btn_evt.jbutton.which == 5
 assert btn_evt.jbutton.button == 7
 assert btn_evt.jbutton.state == 1
 
-event = usdl2.Event()
-while usdl2.poll_event(event):
-    if event.type == 0x100:
+# SDL_Event helper
+empty = usdl2.SDL_Event()
+assert empty.type == 0
+wrapped = usdl2.SDL_Event(btn_evt)
+assert wrapped.jbutton.button == 7
+assert usdl2.SDL_Event(btn_evt) is btn_evt
+
+# Timer API (multimer / pydisplay)
+assert usdl2.SDL_INIT_TIMER == 0x00000001
+assert usdl2.SDL_Init(usdl2.SDL_INIT_TIMER) == 0
+
+_timer_ticks = []
+
+
+def _timer_cb(interval, _param):
+    _timer_ticks.append(interval)
+    return interval
+
+
+_tcb = usdl2.SDL_TimerCallback(_timer_cb)
+_timer = usdl2.SDL_AddTimer(50, _tcb, None)
+assert _timer
+
+import time
+
+_poll = usdl2.SDL_Event()
+_deadline = time.time() + 0.25
+while time.time() < _deadline:
+    while usdl2.SDL_PollEvent(_poll):
+        pass
+    time.sleep(0.01)
+
+assert usdl2.SDL_RemoveTimer(_timer)
+assert len(_timer_ticks) > 0
+
+event = usdl2.SDL_Event()
+while usdl2.SDL_PollEvent(event):
+    if event.type == usdl2.SDL_QUIT:
         break
 
-usdl2.destroy_renderer(renderer)
-usdl2.destroy_window(win)
-usdl2.quit()
+usdl2.SDL_DestroyRenderer(renderer)
+usdl2.SDL_DestroyWindow(win)
+usdl2.SDL_Quit()
 
 print("usdl2 smoke test ok")
