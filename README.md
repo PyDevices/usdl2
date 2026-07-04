@@ -75,12 +75,48 @@ For coverage/gcov builds, use `--variant coverage` with both scripts.
 
 Embedded ports are unaffected (`CIRCUITPY_USDL2` defaults to 0 on CircuitPython).
 
+## Android (CPython + python-for-android)
+
+On Android there is no MicroPython port; pydisplay runs under **CPython** in a **python-for-android** APK with the **SDL2 bootstrap**. The same `import usdl2` API is provided by a **ctypes FFI package** in `python/usdl2/` (sets `_USE_FFI = True`). pydisplay's existing `SDLDisplay` backend works unchanged once `usdl2` is installed.
+
+### Quick test (desktop, FFI)
+
+```bash
+pip install -e .
+xvfb-run -a python3 test_usdl2.py   # headless CI / Linux without a display
+```
+
+### Build demo APK
+
+Prerequisites: [Android SDK + NDK](https://python-for-android.readthedocs.io/en/latest/quickstart.html), `pip install buildozer`.
+
+```bash
+cd android_demo
+./build_apk.sh
+# APK: android_demo/bin/usdl2demo-0.1.0-arm64-v8a-debug.apk (name may vary)
+adb install -r bin/*.apk
+```
+
+`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root so the local p4a recipe installs the in-tree FFI package instead of downloading from GitHub.
+
+### pydisplay on Android
+
+1. Add a p4a recipe for [pydisplay](https://github.com/PyDevices/pydisplay) (or vendor `src/lib/` into your app).
+2. Use `board_configs/sdldisplay/board_config.py` (force `SDLDisplay`, not PyGame).
+3. Require `usdl2` and `sdl2` in `buildozer.spec`.
+
+Touch input arrives as SDL mouse events; `sdldisplay.py` already maps them to `eventsys`.
+
 ## Layout
 
 | File | Role |
 |------|------|
 | `usdl2.c`, `usdl2.h`, `usdl2_module_globals.inc` | Native module: SDL bindings, constants, events, timers |
+| `python/usdl2/` | CPython ctypes implementation (`pip install -e .`, Android p4a) |
+| `setup.py` | Editable install for CPython / p4a |
+| `p4a_recipes/usdl2/` | python-for-android recipe (depends on `sdl2`) |
+| `android_demo/` | Sample touch-draw APK (`buildozer.spec`, `main.py`) |
 | `micropython.mk` | MicroPython user C module glue (`MP_REGISTER_MODULE` in `usdl2.c`) |
 | `circuitpython.mk` | CircuitPython port Makefile fragment (`usdl2.c` only; module registration in `shared-bindings/usdl2/__init.c`) |
 | `circuitpython_spike/` | Templates copied into CircuitPython tree |
-| `test_usdl2.py` | Smoke test (both runtimes) |
+| `test_usdl2.py` | Smoke test (MicroPython native or CPython FFI) |
