@@ -99,18 +99,24 @@ adb install -r bin/*.apk
 
 `build_apk.sh` sets `P4A_usdl2_DIR` to the repo root. If `../pydisplay` exists (sibling clone), it also sets `P4A_pydisplay_DIR` for an in-tree pydisplay build.
 
-### pydisplay on Android
+### pydisplay + LVGL on Android
 
-The demo APK uses **pydisplay** (`SDLDisplay`, `eventsys`, `multimer`) via the `pydisplay` p4a recipe:
+The demo APK uses **pydisplay** (`SDLDisplay`, `eventsys`, `multimer`) and **lvgl-cpython** via p4a recipes:
 
 | File | Role |
 |------|------|
-| `p4a_recipes/pydisplay/` | Installs `displaysys`, `eventsys`, `graphics`, `multimer` from pydisplay `src/lib/` |
+| `p4a_recipes/pydisplay/` | Installs `displaysys`, `eventsys`, `graphics`, `multimer`; copies `display_driver.py` + `lv_utils.py` to site-packages |
+| `p4a_recipes/lvglcpython/` | `PyProjectRecipe` for `lvgl-cpython` — TestPyPI prebuilt wheel (`android_21_arm64_v8a`, …) or source fallback |
 | `android_demo/board_config.py` | SDL display + event broker (landscape, fullscreen on Android) |
-| `android_demo/main.py` | Touch-paint demo using pydisplay APIs |
+| `android_demo/main_lvgl.py` | LVGL touch grid demo (`import display_driver`) — default APK entry |
+| `android_demo/main.py` | Touch-paint demo without LVGL |
 | `android_demo/main_usdl2_raw.py` | Raw `usdl2` reference demo (no pydisplay) |
 
-`buildozer.spec` requirements: `python3,sdl2,usdl2,pydisplay`.
+`buildozer.spec` requirements: `python3,sdl2,usdl2,pydisplay,lvglcpython` with `p4a.extra_index_url` for TestPyPI wheels.
+
+On Android, **multimer** selects the **`_sdl2`** backend (SDL timers on the UI thread) when `usdl2` is available — not `_threading`.
+
+Set `P4A_lvgl_cpython_DIR` to a sibling `lv_cpython_mod` clone for in-tree source builds (`git submodule update --init lvgl` required).
 
 Desktop smoke test (Xvfb, requires sibling `pydisplay` clone):
 
