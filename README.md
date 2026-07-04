@@ -93,19 +93,33 @@ Prerequisites: [Android SDK + NDK](https://python-for-android.readthedocs.io/en/
 ```bash
 cd android_demo
 ./build_apk.sh
-# APK: android_demo/bin/usdl2demo-0.1.0-arm64-v8a-debug.apk (name may vary)
+# APK: android_demo/bin/pydisplaydemo-0.2.0-*-debug.apk (name may vary)
 adb install -r bin/*.apk
 ```
 
-`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root so the local p4a recipe installs the in-tree FFI package instead of downloading from GitHub.
+`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root. If `../pydisplay` exists (sibling clone), it also sets `P4A_pydisplay_DIR` for an in-tree pydisplay build.
 
 ### pydisplay on Android
 
-1. Add a p4a recipe for [pydisplay](https://github.com/PyDevices/pydisplay) (or vendor `src/lib/` into your app).
-2. Use `board_configs/sdldisplay/board_config.py` (force `SDLDisplay`, not PyGame).
-3. Require `usdl2` and `sdl2` in `buildozer.spec`.
+The demo APK uses **pydisplay** (`SDLDisplay`, `eventsys`, `multimer`) via the `pydisplay` p4a recipe:
 
-Touch input arrives as SDL mouse events; `sdldisplay.py` already maps them to `eventsys`.
+| File | Role |
+|------|------|
+| `p4a_recipes/pydisplay/` | Installs `displaysys`, `eventsys`, `graphics`, `multimer` from pydisplay `src/lib/` |
+| `android_demo/board_config.py` | SDL display + event broker (landscape, fullscreen on Android) |
+| `android_demo/main.py` | Touch-paint demo using pydisplay APIs |
+| `android_demo/main_usdl2_raw.py` | Raw `usdl2` reference demo (no pydisplay) |
+
+`buildozer.spec` requirements: `python3,sdl2,usdl2,pydisplay`.
+
+Desktop smoke test (Xvfb, requires sibling `pydisplay` clone):
+
+```bash
+git clone https://github.com/PyDevices/pydisplay.git ../pydisplay
+cd android_demo && ./test_desktop.sh
+```
+
+For your own app, copy `board_config.py`, add `pydisplay` + `usdl2` to `buildozer.spec`, and write your main loop with `display_drv` / `broker` as usual.
 
 ## Layout
 
@@ -115,7 +129,8 @@ Touch input arrives as SDL mouse events; `sdldisplay.py` already maps them to `e
 | `python/usdl2/` | CPython ctypes implementation (`pip install -e .`, Android p4a) |
 | `setup.py` | Editable install for CPython / p4a |
 | `p4a_recipes/usdl2/` | python-for-android recipe (depends on `sdl2`) |
-| `android_demo/` | Sample touch-draw APK (`buildozer.spec`, `main.py`) |
+| `p4a_recipes/pydisplay/` | python-for-android recipe (depends on `usdl2`) |
+| `android_demo/` | pydisplay touch-paint APK + raw usdl2 example |
 | `micropython.mk` | MicroPython user C module glue (`MP_REGISTER_MODULE` in `usdl2.c`) |
 | `circuitpython.mk` | CircuitPython port Makefile fragment (`usdl2.c` only; module registration in `shared-bindings/usdl2/__init.c`) |
 | `circuitpython_spike/` | Templates copied into CircuitPython tree |
