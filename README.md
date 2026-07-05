@@ -75,12 +75,69 @@ For coverage/gcov builds, use `--variant coverage` with both scripts.
 
 Embedded ports are unaffected (`CIRCUITPY_USDL2` defaults to 0 on CircuitPython).
 
+## Android (CPython + python-for-android)
+
+On Android there is no MicroPython port; pydisplay runs under **CPython** in a **python-for-android** APK with the **SDL2 bootstrap**. The same `import usdl2` API is provided by a **ctypes FFI package** in `python/usdl2/` (sets `_USE_FFI = True`). pydisplay's existing `SDLDisplay` backend works unchanged once `usdl2` is installed.
+
+### Quick test (desktop, FFI)
+
+```bash
+pip install -e .
+xvfb-run -a python3 test_usdl2.py   # headless CI / Linux without a display
+```
+
+### Build demo APK
+
+Prerequisites: [Android SDK + NDK](https://python-for-android.readthedocs.io/en/latest/quickstart.html), `pip install buildozer`.
+
+```bash
+cd android_demo
+./build_apk.sh
+# APK: android_demo/bin/pydisplaydemo-0.2.0-*-debug.apk (name may vary)
+adb install -r bin/*.apk
+```
+
+`build_apk.sh` sets `P4A_usdl2_DIR` to the repo root. If `../pydisplay` exists (sibling clone), it also sets `P4A_pydisplay_DIR` for an in-tree pydisplay build.
+
+### pydisplay + LVGL on Android
+
+The demo APK uses **pydisplay** (`SDLDisplay`, `eventsys`, `multimer`) and **lvgl-cpython** via p4a recipes:
+
+| File | Role |
+|------|------|
+| `p4a_recipes/pydisplay/` | Installs `displaysys`, `eventsys`, `graphics`, `multimer`; copies `display_driver.py` + `lv_utils.py` to site-packages |
+| `p4a_recipes/lvglcpython/` | `PyProjectRecipe` for `lvgl-cpython` — TestPyPI prebuilt wheel (`android_21_arm64_v8a`, …) or source fallback |
+| `android_demo/board_config.py` | SDL display + event broker (landscape, fullscreen on Android) |
+| `android_demo/main_lvgl.py` | LVGL touch grid demo (`import display_driver`) — default APK entry |
+| `android_demo/main.py` | Touch-paint demo without LVGL |
+| `android_demo/main_usdl2_raw.py` | Raw `usdl2` reference demo (no pydisplay) |
+
+`buildozer.spec` requirements: `python3,sdl2,usdl2,pydisplay,lvglcpython` with `p4a.extra_index_url` for TestPyPI wheels.
+
+On Android, **multimer** selects the **`_sdl2`** backend (SDL timers on the UI thread) when `usdl2` is available — not `_threading`.
+
+Set `P4A_lvgl_cpython_DIR` to a sibling `lv_cpython_mod` clone for in-tree source builds (`git submodule update --init lvgl` required).
+
+Desktop smoke test (Xvfb, requires sibling `pydisplay` clone):
+
+```bash
+git clone https://github.com/PyDevices/pydisplay.git ../pydisplay
+cd android_demo && ./test_desktop.sh
+```
+
+For your own app, copy `board_config.py`, add `pydisplay` + `usdl2` to `buildozer.spec`, and write your main loop with `display_drv` / `broker` as usual.
+
 ## Layout
 
 | File | Role |
 |------|------|
 | `usdl2.c`, `usdl2.h`, `usdl2_module_globals.inc` | Native module: SDL bindings, constants, events, timers |
+| `python/usdl2/` | CPython ctypes implementation (`pip install -e .`, Android p4a) |
+| `setup.py` | Editable install for CPython / p4a |
+| `p4a_recipes/usdl2/` | python-for-android recipe (depends on `sdl2`) |
+| `p4a_recipes/pydisplay/` | python-for-android recipe (depends on `usdl2`) |
+| `android_demo/` | pydisplay touch-paint APK + raw usdl2 example |
 | `micropython.mk` | MicroPython user C module glue (`MP_REGISTER_MODULE` in `usdl2.c`) |
 | `circuitpython.mk` | CircuitPython port Makefile fragment (`usdl2.c` only; module registration in `shared-bindings/usdl2/__init.c`) |
 | `circuitpython_spike/` | Templates copied into CircuitPython tree |
-| `test_usdl2.py` | Smoke test (both runtimes) |
+| `test_usdl2.py` | Smoke test (MicroPython native or CPython FFI) |
