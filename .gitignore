@@ -8,5 +8,3 @@ __pycache__/
 dist/
 build/
 .bin/
-android_demo/.buildozer/
-android_demo/bin/
