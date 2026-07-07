@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="usdl2",
-    version="0.1.0",
+    version="0.0.1",
     description="CPython ctypes SDL2 subset for pydisplay (Android and desktop)",
     license="MIT",
     packages=find_packages(where="python"),
