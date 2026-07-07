@@ -1,0 +1,88 @@
+# Build the usdl2 pure-Python wheel/sdist and upload to TestPyPI.
+#
+# Release trigger: push an annotated semver tag vX.Y.Z (see scripts/publish_release_tag.sh),
+# or workflow_dispatch.
+#
+# Required repository secret (Settings → Secrets and variables → Actions):
+#   TESTPYPI_API_TOKEN — TestPyPI API token (same as PyDevices/pydisplay)
+#
+# Install from TestPyPI:
+#   pip install -i https://test.pypi.org/simple/ usdl2
+
+name: Publish TestPyPI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver X.Y.Z (required unless the checked-out ref is a vX.Y.Z tag)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.repository == 'PyDevices/usdl2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          normalize() {
+            local v="${1#v}"
+            v="$(echo "$v" | tr -d '[:space:]')"
+            if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Invalid semver: $1 (expected X.Y.Z)" >&2
+              exit 1
+            fi
+            echo "$v"
+          }
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="$(normalize "${GITHUB_REF_NAME}")"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            VERSION="$(normalize "$INPUT_VERSION")"
+          else
+            TAG="$(git describe --tags --exact-match 2>/dev/null || true)"
+            if [[ -z "$TAG" ]]; then
+              echo "Set the version input or run this workflow from a vX.Y.Z tag." >&2
+              exit 1
+            fi
+            VERSION="$(normalize "$TAG")"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing usdl2 release $VERSION"
+
+      - name: Write VERSION file
+        run: echo "${{ steps.version.outputs.version }}" > VERSION
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Upload to TestPyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
+        run: twine upload --repository testpypi --verbose dist/*
