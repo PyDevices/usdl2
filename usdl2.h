@@ -49,6 +49,7 @@ extern const mp_obj_fun_builtin_fixed_t SDL_TimerCallback_fun_obj;
 extern const mp_obj_fun_builtin_var_t SDL_AddTimer_fun_obj;
 extern const mp_obj_fun_builtin_fixed_t SDL_RemoveTimer_fun_obj;
 extern const mp_obj_fun_builtin_fixed_t pump_scheduler_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_desktop_size_fun_obj;
 
 void *usdl2_ptr_from_obj(mp_obj_t obj);
 mp_obj_t usdl2_ptr_obj(void *ptr);
