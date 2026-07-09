@@ -146,6 +146,21 @@ def _configure_sdl(lib):
     lib.SDL_JoystickInstanceID.argtypes = [c_void_p]
     lib.SDL_JoystickInstanceID.restype = c_int
 
+    class SDL_DisplayMode(ctypes.Structure):
+        _fields_ = [
+            ("format", c_uint),
+            ("w", c_int),
+            ("h", c_int),
+            ("refresh_rate", c_int),
+            ("driverdata", c_void_p),
+        ]
+
+    lib._SDL_DisplayMode = SDL_DisplayMode
+    lib.SDL_GetDisplayUsableBounds.argtypes = [c_int, POINTER(SDL_Rect)]
+    lib.SDL_GetDisplayUsableBounds.restype = c_int
+    lib.SDL_GetDesktopDisplayMode.argtypes = [c_int, POINTER(SDL_DisplayMode)]
+    lib.SDL_GetDesktopDisplayMode.restype = c_int
+
     global _timer_trampoline_ref
     _TimerTrampoline = CFUNCTYPE(c_uint, c_uint, c_void_p)
 
@@ -384,6 +399,20 @@ def SDL_JoystickClose(joystick) -> None:
 
 def SDL_JoystickInstanceID(joystick) -> int:
     return _get_lib().SDL_JoystickInstanceID(c_void_p(_ptr(joystick).value))
+
+
+def SDL_desktop_size(display_index=0) -> tuple[int, int]:
+    """Return usable desktop (width, height) for *display_index*, or (0, 0)."""
+    lib = _get_lib()
+    rect = lib._SDL_Rect()
+    if lib.SDL_GetDisplayUsableBounds(int(display_index), ctypes.byref(rect)) == 0:
+        if rect.w > 0 and rect.h > 0:
+            return rect.w, rect.h
+    mode = lib._SDL_DisplayMode()
+    if lib.SDL_GetDesktopDisplayMode(int(display_index), ctypes.byref(mode)) == 0:
+        if mode.w > 0 and mode.h > 0:
+            return mode.w, mode.h
+    return 0, 0
 
 
 def SDL_TimerCallback(callback) -> _TimerCallback:

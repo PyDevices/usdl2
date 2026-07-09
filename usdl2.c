@@ -975,6 +975,26 @@ static mp_obj_t pump_scheduler_obj(mp_obj_t max_in) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(pump_scheduler_fun_obj, pump_scheduler_obj);
 
+static mp_obj_t SDL_desktop_size_obj(size_t n_args, const mp_obj_t *args) {
+    int display_index = 0;
+    if (n_args > 0) {
+        display_index = mp_obj_get_int(args[0]);
+    }
+    SDL_Rect rect;
+    if (SDL_GetDisplayUsableBounds(display_index, &rect) == 0 && rect.w > 0 && rect.h > 0) {
+        mp_obj_t tuple[2] = { mp_obj_new_int(rect.w), mp_obj_new_int(rect.h) };
+        return mp_obj_new_tuple(2, tuple);
+    }
+    SDL_DisplayMode mode;
+    if (SDL_GetDesktopDisplayMode(display_index, &mode) == 0 && mode.w > 0 && mode.h > 0) {
+        mp_obj_t tuple[2] = { mp_obj_new_int(mode.w), mp_obj_new_int(mode.h) };
+        return mp_obj_new_tuple(2, tuple);
+    }
+    mp_obj_t tuple[2] = { mp_obj_new_int(0), mp_obj_new_int(0) };
+    return mp_obj_new_tuple(2, tuple);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_desktop_size_fun_obj, 0, 1, SDL_desktop_size_obj);
+
 // --- Module registration (MicroPython only; CP uses shared-bindings/usdl2/__init.c) ---
 
 #if !CIRCUITPY
