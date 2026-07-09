@@ -146,21 +146,6 @@ def _configure_sdl(lib):
     lib.SDL_JoystickInstanceID.argtypes = [c_void_p]
     lib.SDL_JoystickInstanceID.restype = c_int
 
-    class SDL_DisplayMode(ctypes.Structure):
-        _fields_ = [
-            ("format", c_uint),
-            ("w", c_int),
-            ("h", c_int),
-            ("refresh_rate", c_int),
-            ("driverdata", c_void_p),
-        ]
-
-    lib._SDL_DisplayMode = SDL_DisplayMode
-    lib.SDL_GetDisplayUsableBounds.argtypes = [c_int, POINTER(SDL_Rect)]
-    lib.SDL_GetDisplayUsableBounds.restype = c_int
-    lib.SDL_GetDesktopDisplayMode.argtypes = [c_int, POINTER(SDL_DisplayMode)]
-    lib.SDL_GetDesktopDisplayMode.restype = c_int
-
     global _timer_trampoline_ref
     _TimerTrampoline = CFUNCTYPE(c_uint, c_uint, c_void_p)
 
@@ -190,6 +175,21 @@ def _configure_sdl(lib):
     lib.SDL_RenderFillRect.restype = c_int
     lib.SDL_RenderCopy.argtypes = [c_void_p, c_void_p, POINTER(SDL_Rect), POINTER(SDL_Rect)]
     lib.SDL_RenderCopy.restype = c_int
+
+    class SDL_DisplayMode(ctypes.Structure):
+        _fields_ = [
+            ("format", c_uint),
+            ("w", c_int),
+            ("h", c_int),
+            ("refresh_rate", c_int),
+            ("driverdata", c_void_p),
+        ]
+
+    lib._SDL_DisplayMode = SDL_DisplayMode
+    lib.SDL_GetDisplayUsableBounds.argtypes = [c_int, POINTER(SDL_Rect)]
+    lib.SDL_GetDisplayUsableBounds.restype = c_int
+    lib.SDL_GetDesktopDisplayMode.argtypes = [c_int, POINTER(SDL_DisplayMode)]
+    lib.SDL_GetDesktopDisplayMode.restype = c_int
 
     class SDL_Point(ctypes.Structure):
         _fields_ = [("x", c_int), ("y", c_int)]
