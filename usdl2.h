@@ -49,12 +49,15 @@ extern const mp_obj_fun_builtin_fixed_t SDL_TimerCallback_fun_obj;
 extern const mp_obj_fun_builtin_var_t SDL_AddTimer_fun_obj;
 extern const mp_obj_fun_builtin_fixed_t SDL_RemoveTimer_fun_obj;
 extern const mp_obj_fun_builtin_fixed_t pump_scheduler_fun_obj;
-extern const mp_obj_fun_builtin_var_t SDL_desktop_size_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_GetDisplayUsableBounds_fun_obj;
+extern const mp_obj_fun_builtin_var_t SDL_GetDesktopDisplayMode_fun_obj;
 
 void *usdl2_ptr_from_obj(mp_obj_t obj);
 mp_obj_t usdl2_ptr_obj(void *ptr);
 bool usdl2_obj_is_none_or_null(mp_obj_t obj);
 void usdl2_rect_from_bytes(mp_obj_t obj, SDL_Rect *rect);
+void usdl2_rect_to_bytes(const SDL_Rect *rect, mp_obj_t obj);
+void usdl2_display_mode_to_bytes(const SDL_DisplayMode *mode, mp_obj_t obj);
 SDL_Rect *usdl2_optional_rect(mp_obj_t obj, SDL_Rect *storage);
 
 mp_obj_t usdl2_event_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);

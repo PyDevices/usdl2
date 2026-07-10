@@ -401,18 +401,42 @@ def SDL_JoystickInstanceID(joystick) -> int:
     return _get_lib().SDL_JoystickInstanceID(c_void_p(_ptr(joystick).value))
 
 
-def SDL_desktop_size(display_index=0) -> tuple[int, int]:
-    """Return usable desktop (width, height) for *display_index*, or (0, 0)."""
+def SDL_GetDisplayUsableBounds(display_index, rect) -> int:
     lib = _get_lib()
-    rect = lib._SDL_Rect()
-    if lib.SDL_GetDisplayUsableBounds(int(display_index), ctypes.byref(rect)) == 0:
-        if rect.w > 0 and rect.h > 0:
-            return rect.w, rect.h
-    mode = lib._SDL_DisplayMode()
-    if lib.SDL_GetDesktopDisplayMode(int(display_index), ctypes.byref(mode)) == 0:
-        if mode.w > 0 and mode.h > 0:
-            return mode.w, mode.h
-    return 0, 0
+    if isinstance(rect, (bytes, bytearray, memoryview)):
+        buf = bytearray(rect) if not isinstance(rect, bytearray) else rect
+        if len(buf) < 16:
+            raise ValueError("rect buffer too small")
+        r = lib._SDL_Rect()
+        rc = lib.SDL_GetDisplayUsableBounds(int(display_index), ctypes.byref(r))
+        if rc == 0:
+            struct.pack_into("<iiii", buf, 0, r.x, r.y, r.w, r.h)
+        return rc
+    r = rect if hasattr(rect, "_fields_") else _rect_from_bytes(rect)
+    return lib.SDL_GetDisplayUsableBounds(int(display_index), ctypes.byref(r))
+
+
+def SDL_GetDesktopDisplayMode(display_index, mode) -> int:
+    lib = _get_lib()
+    if isinstance(mode, (bytes, bytearray, memoryview)):
+        buf = bytearray(mode) if not isinstance(mode, bytearray) else mode
+        if len(buf) < ctypes.sizeof(lib._SDL_DisplayMode):
+            raise ValueError("display mode buffer too small")
+        m = lib._SDL_DisplayMode()
+        rc = lib.SDL_GetDesktopDisplayMode(int(display_index), ctypes.byref(m))
+        if rc == 0:
+            struct.pack_into(
+                "<Iiii",
+                buf,
+                0,
+                m.format,
+                m.w,
+                m.h,
+                m.refresh_rate,
+            )
+        return rc
+    m = mode if hasattr(mode, "_fields_") else lib._SDL_DisplayMode()
+    return lib.SDL_GetDesktopDisplayMode(int(display_index), ctypes.byref(m))
 
 
 def SDL_TimerCallback(callback) -> _TimerCallback:

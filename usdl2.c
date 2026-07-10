@@ -308,6 +308,33 @@ void usdl2_rect_from_bytes(mp_obj_t obj, SDL_Rect *rect) {
     rect->h = values[3];
 }
 
+void usdl2_rect_to_bytes(const SDL_Rect *rect, mp_obj_t obj) {
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(obj, &bufinfo, MP_BUFFER_WRITE);
+    if (bufinfo.len < sizeof(SDL_Rect)) {
+        mp_raise_ValueError(MP_ERROR_TEXT("rect buffer too small"));
+    }
+    int32_t *values = (int32_t *)bufinfo.buf;
+    values[0] = rect->x;
+    values[1] = rect->y;
+    values[2] = rect->w;
+    values[3] = rect->h;
+}
+
+void usdl2_display_mode_to_bytes(const SDL_DisplayMode *mode, mp_obj_t obj) {
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(obj, &bufinfo, MP_BUFFER_WRITE);
+    if (bufinfo.len < (mp_uint_t)sizeof(SDL_DisplayMode)) {
+        mp_raise_ValueError(MP_ERROR_TEXT("display mode buffer too small"));
+    }
+    uint32_t *u32 = (uint32_t *)bufinfo.buf;
+    int32_t *i32 = (int32_t *)bufinfo.buf;
+    u32[0] = mode->format;
+    i32[1] = mode->w;
+    i32[2] = mode->h;
+    i32[3] = mode->refresh_rate;
+}
+
 SDL_Rect *usdl2_optional_rect(mp_obj_t obj, SDL_Rect *storage) {
     if (usdl2_obj_is_none_or_null(obj)) {
         return NULL;
@@ -975,25 +1002,35 @@ static mp_obj_t pump_scheduler_obj(mp_obj_t max_in) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(pump_scheduler_fun_obj, pump_scheduler_obj);
 
-static mp_obj_t SDL_desktop_size_obj(size_t n_args, const mp_obj_t *args) {
-    int display_index = 0;
-    if (n_args > 0) {
-        display_index = mp_obj_get_int(args[0]);
-    }
+mp_obj_t usdl2_get_display_usable_bounds(size_t n_args, const mp_obj_t *args) {
+    int display_index = (int)mp_obj_get_int(args[0]);
     SDL_Rect rect;
-    if (SDL_GetDisplayUsableBounds(display_index, &rect) == 0 && rect.w > 0 && rect.h > 0) {
-        mp_obj_t tuple[2] = { mp_obj_new_int(rect.w), mp_obj_new_int(rect.h) };
-        return mp_obj_new_tuple(2, tuple);
+    int rc = SDL_GetDisplayUsableBounds(display_index, &rect);
+    if (rc == 0 && n_args > 1) {
+        usdl2_rect_to_bytes(&rect, args[1]);
     }
-    SDL_DisplayMode mode;
-    if (SDL_GetDesktopDisplayMode(display_index, &mode) == 0 && mode.w > 0 && mode.h > 0) {
-        mp_obj_t tuple[2] = { mp_obj_new_int(mode.w), mp_obj_new_int(mode.h) };
-        return mp_obj_new_tuple(2, tuple);
-    }
-    mp_obj_t tuple[2] = { mp_obj_new_int(0), mp_obj_new_int(0) };
-    return mp_obj_new_tuple(2, tuple);
+    return mp_obj_new_int(rc);
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_desktop_size_fun_obj, 0, 1, SDL_desktop_size_obj);
+
+static mp_obj_t SDL_GetDisplayUsableBounds_obj(size_t n_args, const mp_obj_t *args) {
+    return usdl2_get_display_usable_bounds(n_args, args);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_GetDisplayUsableBounds_fun_obj, 1, 2, SDL_GetDisplayUsableBounds_obj);
+
+mp_obj_t usdl2_get_desktop_display_mode(size_t n_args, const mp_obj_t *args) {
+    int display_index = (int)mp_obj_get_int(args[0]);
+    SDL_DisplayMode mode;
+    int rc = SDL_GetDesktopDisplayMode(display_index, &mode);
+    if (rc == 0 && n_args > 1) {
+        usdl2_display_mode_to_bytes(&mode, args[1]);
+    }
+    return mp_obj_new_int(rc);
+}
+
+static mp_obj_t SDL_GetDesktopDisplayMode_obj(size_t n_args, const mp_obj_t *args) {
+    return usdl2_get_desktop_display_mode(n_args, args);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_GetDesktopDisplayMode_fun_obj, 1, 2, SDL_GetDesktopDisplayMode_obj);
 
 // --- Module registration (MicroPython only; CP uses shared-bindings/usdl2/__init.c) ---
 

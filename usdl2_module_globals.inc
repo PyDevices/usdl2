@@ -34,7 +34,8 @@
     { MP_ROM_QSTR(MP_QSTR_SDL_AddTimer), MP_ROM_PTR(&SDL_AddTimer_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_SDL_RemoveTimer), MP_ROM_PTR(&SDL_RemoveTimer_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_pump_scheduler), MP_ROM_PTR(&pump_scheduler_fun_obj) },
-    { MP_ROM_QSTR(MP_QSTR_SDL_desktop_size), MP_ROM_PTR(&SDL_desktop_size_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_SDL_GetDisplayUsableBounds), MP_ROM_PTR(&SDL_GetDisplayUsableBounds_fun_obj) },
+    { MP_ROM_QSTR(MP_QSTR_SDL_GetDesktopDisplayMode), MP_ROM_PTR(&SDL_GetDesktopDisplayMode_fun_obj) },
     { MP_ROM_QSTR(MP_QSTR_Event), MP_ROM_PTR(&usdl2_event_type) },
     { MP_ROM_QSTR(MP_QSTR_SDL_DEFINE_PIXELFORMAT), MP_ROM_PTR(&usdl2_SDL_DEFINE_PIXELFORMAT_fun_obj) },
     USDL2_CONSTANTS_TABLE
