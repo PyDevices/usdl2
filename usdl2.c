@@ -7,6 +7,7 @@
 #include "py/mphal.h"
 #include "usdl2.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -682,7 +683,9 @@ static void usdl2_timer_unlink(usdl2_timer_entry_t *entry) {
         if (*prev == entry) {
             *prev = entry->next;
             usdl2_timer_free_slot(entry);
-            m_del(usdl2_timer_entry_t, entry, 1);
+            // Entries are malloc'd (not m_new): SDL holds raw pointers across
+            // GC collections; GC heap blocks were swept while timers still lived.
+            free(entry);
             return;
         }
         prev = &(*prev)->next;
@@ -749,7 +752,10 @@ mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args) {
         user_param = args[2];
     }
 
-    usdl2_timer_entry_t *entry = m_new(usdl2_timer_entry_t, 1);
+    usdl2_timer_entry_t *entry = malloc(sizeof(usdl2_timer_entry_t));
+    if (entry == NULL) {
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("out of memory"));
+    }
     entry->next = usdl2_timer_list;
     entry->callback = cb->callback;
     entry->user_param = user_param;
@@ -758,14 +764,14 @@ mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args) {
     entry->id = 0;
 
     if (usdl2_timer_alloc_slot(entry) < 0) {
-        m_del(usdl2_timer_entry_t, entry, 1);
+        free(entry);
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("too many SDL timers"));
     }
 
     entry->id = SDL_AddTimer(entry->interval, usdl2_timer_trampoline, entry);
     if (entry->id == 0) {
         usdl2_timer_free_slot(entry);
-        m_del(usdl2_timer_entry_t, entry, 1);
+        free(entry);
         return mp_obj_new_int(0);
     }
 
