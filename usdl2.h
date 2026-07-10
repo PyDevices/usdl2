@@ -100,6 +100,8 @@ mp_obj_t usdl2_timer_callback(mp_obj_t callback_in);
 mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args);
 mp_obj_t usdl2_remove_timer(mp_obj_t timer_in);
 mp_obj_t usdl2_pump_scheduler(mp_obj_t max_in);
+mp_obj_t usdl2_get_display_usable_bounds(size_t n_args, const mp_obj_t *args);
+mp_obj_t usdl2_get_desktop_display_mode(size_t n_args, const mp_obj_t *args);
 
 #define USDL2_DEFINE_PIXELFORMAT(type, order, layout, bits, bytes) \
     ((1 << 28) | ((type) << 24) | ((order) << 20) | ((layout) << 16) | ((bits) << 8) | (bytes))
