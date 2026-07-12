@@ -1,6 +1,7 @@
 # MicroPython build glue for usdl2 (desktop SDL2 subset: unix + windows ports).
 #
-# Discovered via USER_C_MODULES pointing at the cmods workspace root.
+# Discovered via USER_C_MODULES pointing at the workspace directory that
+# contains this repo (its parent), e.g. `make USER_C_MODULES=../../..`.
 #
 # Linux/unix: libsdl2-dev + pkg-config sdl2
 # Windows (MinGW): SDL2 official MinGW development zip (not vendored in this repo).

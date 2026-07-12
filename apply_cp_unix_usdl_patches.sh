@@ -270,7 +270,7 @@ PY
 
 if [ ! -d "$CP_DIR/.git" ]; then
     echo "CircuitPython tree not found at $CP_DIR"
-    echo "Set CP_DIR to your clone (e.g. CP_DIR=~/github/cmods/circuitpython)"
+    echo "Set CP_DIR to your clone (e.g. CP_DIR=~/workspace/circuitpython)"
     exit 1
 fi
 

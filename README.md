@@ -21,15 +21,21 @@ Do **not** vendor SDL2 in this repo. Download the official **SDL2 MinGW developm
 export SDL2_DEV=~/SDL2-2.30.10
 ```
 
-`build_mp.sh` sets `SDL2_DEV` for the make step when it is exported in your shell. The official MinGW ZIP’s `sdl2.pc` files embed incorrect `prefix` paths from the SDL build machine; the build uses the unpacked `x86_64-w64-mingw32/` (or `i686-w64-mingw32/`) layout under `SDL2_DEV` directly instead of pkg-config.
+Export `SDL2_DEV` before `make` so `micropython.mk` can find the headers/libs. The official MinGW ZIP’s `sdl2.pc` files embed incorrect `prefix` paths from the SDL build machine; the build uses the unpacked `x86_64-w64-mingw32/` (or `i686-w64-mingw32/`) layout under `SDL2_DEV` directly instead of pkg-config.
 
-Cross-compiling the windows port from Linux/WSL also needs MinGW-w64 (`sudo apt install gcc-mingw-w64`). `build_mp.sh` sets `CROSS_COMPILE` when appropriate.
+Cross-compiling the windows port from Linux/WSL also needs MinGW-w64 (`sudo apt install gcc-mingw-w64`) and a suitable `CROSS_COMPILE` (e.g. `x86_64-w64-mingw32-`).
 
 The windows build links SDL2 **statically** so `micropython.exe` does not require `SDL2.dll` beside it.
 
-## MicroPython (cmods)
+## MicroPython
 
-Clone into the [cmods](https://github.com/PyDevices/cmods) workspace (sibling of `micropython/`):
+Clone as a sibling of `micropython/`:
+
+```
+workspace/
+  usdl2/          ← this repo
+  micropython/
+```
 
 ```bash
 git clone https://github.com/PyDevices/usdl2.git
@@ -38,29 +44,45 @@ git clone https://github.com/PyDevices/usdl2.git
 **Unix:**
 
 ```bash
-./build_mp.sh --port unix --variant standard
-./micropython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
+cd micropython/ports/unix
+make submodules
+make USER_C_MODULES=../../..
+cd ../../..
+./micropython/ports/unix/build-standard/micropython usdl2/test_usdl2.py
 ```
 
 **Windows** (from WSL/Linux with cross MinGW, after setting `SDL2_DEV`):
 
 ```bash
 export SDL2_DEV=~/SDL2-2.30.10
-./build_mp.sh --port windows --variant standard
+cd micropython/ports/windows
+make submodules
+make USER_C_MODULES=../../..
+cd ../../..
 # Run from WSL (or native Windows):
 #   micropython/ports/windows/build-standard/micropython.exe usdl2/test_usdl2.py
 ```
 
-No patching required — `micropython.mk` is picked up via `USER_C_MODULES`.
+No patching required — `micropython.mk` is picked up via `USER_C_MODULES` (the workspace directory containing this repo).
 
+([cmods](https://github.com/PyDevices/cmods) is an optional convenience workspace with `./build_mp.sh`; it is not required.)
 ## CircuitPython
 
-Requires sibling `circuitpython/` tree and patch script (unix only):
+Requires sibling `circuitpython/` and `lv_circuitpython_mod/` trees (unix only) — `apply_cp_unix_usdl_patches.sh` patches usdl2 into the CircuitPython tree, `lv_circuitpython_mod/build_cp.sh` drives the actual `make`:
+
+```
+workspace/
+  usdl2/                  ← this repo
+  circuitpython/
+  lv_circuitpython_mod/
+```
 
 ```bash
+cd usdl2
 ./apply_cp_unix_usdl_patches.sh --apply
-./build_cp.sh --port unix --variant standard
-./circuitpython/ports/unix/build-standard/micropython ./usdl2/test_usdl2.py
+../lv_circuitpython_mod/build_cp.sh --port unix --variant standard
+cd ..
+./circuitpython/ports/unix/build-standard/micropython usdl2/test_usdl2.py
 ```
 
 For coverage/gcov builds, use `--variant coverage` with both scripts.
