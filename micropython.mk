@@ -61,15 +61,15 @@ ifeq ($(SDL2_CFLAGS),)
 $(error usdl2 SDL2 not found — unix: install libsdl2-dev; windows: set SDL2_DEV to unpacked SDL2 MinGW dev zip (see usdl2/README.md))
 endif
 
-CFLAGS_USERMOD += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR) -Wno-sign-compare -Wno-unused-parameter -Wno-shadow
+CFLAGS_USERMOD += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR)/include -Wno-sign-compare -Wno-unused-parameter -Wno-shadow
 
-ifeq ($(IS_WINDOWS_PORT),)
+# MicroPython only appends LDFLAGS_USERMOD (see py/py.mk); do not use LIBS_USERMOD.
 LDFLAGS_USERMOD += $(SDL2_LIBS)
+ifeq ($(IS_WINDOWS_PORT),)
 else
-LIBS_USERMOD += $(SDL2_LIBS)
 LDFLAGS_USERMOD += -static-libgcc
 endif
 
-SRC_USERMOD_C += $(USDL2_MOD_DIR)/usdl2.c
+SRC_USERMOD_C += $(USDL2_MOD_DIR)/src/usdl2_mp.c
 
 endif

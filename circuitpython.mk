@@ -16,12 +16,12 @@ ifeq ($(SDL2_CFLAGS),)
 $(error pkg-config sdl2 failed — install libsdl2-dev)
 endif
 
-CFLAGS += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR) -DCIRCUITPY_USDL2=1
+CFLAGS += $(SDL2_CFLAGS) -I$(USDL2_MOD_DIR)/include -DCIRCUITPY_USDL2=1
 LDFLAGS += $(SDL2_LIBS)
 
-QSTR_DEFS += $(USDL2_MOD_DIR)/usdl2_qstrdefs.h
+QSTR_DEFS += $(USDL2_MOD_DIR)/include/usdl2_qstrdefs.h
 
-USDL2_SOURCES := $(USDL2_MOD_DIR)/usdl2.c
+USDL2_SOURCES := $(USDL2_MOD_DIR)/src/usdl2_mp.c
 
 USDL2_SUPPRESS_CFLAGS := -Wno-sign-compare -Wno-unused-parameter -Wno-shadow
 $(foreach _usdl,$(USDL2_SOURCES),$(eval $(BUILD)/$(_usdl:.c=.o): CFLAGS += $(USDL2_SUPPRESS_CFLAGS)))

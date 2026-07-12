@@ -1,7 +1,7 @@
 // Copy to circuitpython/shared-bindings/usdl2/__init__.c
 //
 // CircuitPython module registration (jpegio pattern). Implementation and
-// binding fun objs live in USDL2_MOD_DIR/usdl2.c; MicroPython registers there.
+// binding fun objs live in USDL2_MOD_DIR/src/usdl2_mp.c; MicroPython registers there.
 
 #include "py/obj.h"
 #include "py/runtime.h"

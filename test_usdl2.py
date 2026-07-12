@@ -16,6 +16,8 @@ win = usdl2.SDL_CreateWindow("usdl2 test", 100, 100, 320, 240, 0)
 assert win
 
 renderer = usdl2.SDL_CreateRenderer(win, -1, usdl2.SDL_RENDERER_ACCELERATED)
+if not renderer:
+    renderer = usdl2.SDL_CreateRenderer(win, -1, usdl2.SDL_RENDERER_SOFTWARE)
 assert renderer
 
 usdl2.SDL_SetRenderDrawColor(renderer, 32, 64, 128, 255)
@@ -33,7 +35,7 @@ def _pack_event(event_type, payload):
     buf = bytearray(56)
     struct.pack_into("<I", buf, 0, event_type)
     buf[8:8 + len(payload)] = payload
-    return usdl2.Event(buf)
+    return usdl2.SDL_Event(buf)
 
 
 axis_evt = _pack_event(
@@ -80,7 +82,7 @@ assert usdl2.SDL_Event(btn_evt) is btn_evt
 assert usdl2.SDL_INIT_TIMER == 0x00000001
 assert usdl2.SDL_Init(usdl2.SDL_INIT_TIMER) == 0
 assert usdl2.SDL_InitSubSystem(usdl2.SDL_INIT_TIMER) == 0
-assert callable(usdl2.pump_scheduler)
+assert callable(usdl2.SDL_PumpEvents)
 
 _timer_ticks = []
 
@@ -99,6 +101,7 @@ import time
 _poll = usdl2.SDL_Event()
 _deadline = time.time() + 0.25
 while time.time() < _deadline:
+    usdl2.SDL_PumpEvents()
     while usdl2.SDL_PollEvent(_poll):
         pass
     time.sleep(0.01)

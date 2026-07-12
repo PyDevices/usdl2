@@ -9,7 +9,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 // --- SDL_DEFINE_PIXELFORMAT --------------------------------------
 
@@ -224,16 +223,25 @@ mp_int_t usdl2_event_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_
 
 mp_obj_t usdl2_event_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 0, 1, false);
-    usdl2_event_obj_t *self = mp_obj_malloc(usdl2_event_obj_t, type);
-    memset(self->data, 0, USDL2_EVENT_SIZE);
-    if (n_args == 1) {
+    // SDL_Event(None) or SDL_Event() -> new zero-filled event.
+    // SDL_Event(<existing SDL_Event>) -> the same instance (identity), matching
+    // the pre-consolidation SDL_Event() helper's pass-through behavior.
+    // SDL_Event(<bytes-like>) -> a new event copied from the buffer.
+    if (n_args == 1 && args[0] != mp_const_none) {
+        if (mp_obj_is_type(args[0], type)) {
+            return args[0];
+        }
+        usdl2_event_obj_t *self = mp_obj_malloc(usdl2_event_obj_t, type);
         mp_buffer_info_t bufinfo;
         mp_get_buffer_raise(args[0], &bufinfo, MP_BUFFER_READ);
         if (bufinfo.len < USDL2_EVENT_SIZE) {
             mp_raise_ValueError(MP_ERROR_TEXT("event buffer too small"));
         }
         memcpy(self->data, bufinfo.buf, USDL2_EVENT_SIZE);
+        return MP_OBJ_FROM_PTR(self);
     }
+    usdl2_event_obj_t *self = mp_obj_malloc(usdl2_event_obj_t, type);
+    memset(self->data, 0, USDL2_EVENT_SIZE);
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -269,7 +277,7 @@ static void usdl2_event_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
 
 MP_DEFINE_CONST_OBJ_TYPE(
     usdl2_event_type,
-    MP_QSTR_Event,
+    MP_QSTR_SDL_Event,
     MP_TYPE_FLAG_NONE,
     make_new, usdl2_event_make_new,
     attr, usdl2_event_attr,
@@ -357,11 +365,6 @@ mp_obj_t usdl2_init_subsystem(mp_obj_t flags_in) {
 
 mp_obj_t usdl2_quit(void) {
     SDL_Quit();
-    return mp_const_none;
-}
-
-mp_obj_t usdl2_process_exit(mp_obj_t code_in) {
-    _exit((int)mp_obj_get_int(code_in));
     return mp_const_none;
 }
 
@@ -565,6 +568,10 @@ static uint8_t *usdl2_event_buf_from_obj(mp_obj_t event_in) {
     return (uint8_t *)bufinfo.buf;
 }
 
+// Forward declaration: defined below (near the SDL timer machinery), used
+// here to keep the MP scheduler moving on every poll (see its doc comment).
+static mp_int_t usdl2_scheduler_drain(mp_int_t limit);
+
 mp_obj_t usdl2_poll_event(mp_obj_t event_in) {
     SDL_Event event;
     int rc = SDL_PollEvent(&event);
@@ -572,6 +579,7 @@ mp_obj_t usdl2_poll_event(mp_obj_t event_in) {
         uint8_t *buf = usdl2_event_buf_from_obj(event_in);
         memcpy(buf, &event, USDL2_EVENT_SIZE);
     }
+    usdl2_scheduler_drain(32);
     return mp_obj_new_bool(rc);
 }
 
@@ -615,16 +623,6 @@ mp_obj_t usdl2_point_helper(size_t n_args, const mp_obj_t *args) {
         values[i] = (int32_t)mp_obj_get_int(args[i]);
     }
     return mp_obj_new_bytes((const byte *)values, sizeof(values));
-}
-
-mp_obj_t usdl2_event_helper(size_t n_args, const mp_obj_t *args) {
-    if (n_args == 0) {
-        return usdl2_event_make_new(&usdl2_event_type, 0, 0, NULL);
-    }
-    if (mp_obj_is_type(args[0], &usdl2_event_type)) {
-        return args[0];
-    }
-    return usdl2_event_make_new(&usdl2_event_type, 1, 0, args);
 }
 
 // --- Timers ------------------------------------------------------
@@ -779,15 +777,12 @@ mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args) {
     return usdl2_ptr_obj((void *)(uintptr_t)entry->id);
 }
 
-mp_obj_t usdl2_pump_scheduler(mp_obj_t max_in) {
-    mp_int_t limit = 128;
-    if (max_in != mp_const_none) {
-        limit = mp_obj_get_int(max_in);
-        if (limit < 0) {
-            limit = 128;
-        }
-    }
-
+// Drains up to `limit` pending scheduled callbacks (SDL timer trampolines
+// scheduled via mp_sched_schedule()). Not part of the public API: SDL_PumpEvents
+// and SDL_PollEvent call this internally so the MP scheduler is kept moving
+// without requiring callers to pump it explicitly (there is no public SDL API
+// for this, so it must not be exported as its own binding).
+static mp_int_t usdl2_scheduler_drain(mp_int_t limit) {
     mp_int_t ran = 0;
     for (mp_int_t i = 0; i < limit; i++) {
         #if MICROPY_ENABLE_SCHEDULER
@@ -806,7 +801,13 @@ mp_obj_t usdl2_pump_scheduler(mp_obj_t max_in) {
         ran++;
     }
 
-    return mp_obj_new_int(ran);
+    return ran;
+}
+
+mp_obj_t usdl2_pump_events(void) {
+    SDL_PumpEvents();
+    usdl2_scheduler_drain(128);
+    return mp_const_none;
 }
 
 mp_obj_t usdl2_remove_timer(mp_obj_t timer_in) {
@@ -847,11 +848,6 @@ static mp_obj_t SDL_Quit_obj(void) {
     return usdl2_quit();
 }
 MP_DEFINE_CONST_FUN_OBJ_0(SDL_Quit_fun_obj, SDL_Quit_obj);
-
-static mp_obj_t process_exit_obj(mp_obj_t code_in) {
-    return usdl2_process_exit(code_in);
-}
-MP_DEFINE_CONST_FUN_OBJ_1(process_exit_fun_obj, process_exit_obj);
 
 static mp_obj_t SDL_GetError_obj(void) {
     return usdl2_get_error();
@@ -983,11 +979,6 @@ static mp_obj_t SDL_Point_obj(size_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Point_fun_obj, 0, 2, SDL_Point_obj);
 
-static mp_obj_t SDL_Event_obj(size_t n_args, const mp_obj_t *args) {
-    return usdl2_event_helper(n_args, args);
-}
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_Event_fun_obj, 0, 1, SDL_Event_obj);
-
 static mp_obj_t SDL_TimerCallback_obj(mp_obj_t callback_in) {
     return usdl2_timer_callback(callback_in);
 }
@@ -1003,10 +994,10 @@ static mp_obj_t SDL_RemoveTimer_obj(mp_obj_t timer_in) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(SDL_RemoveTimer_fun_obj, SDL_RemoveTimer_obj);
 
-static mp_obj_t pump_scheduler_obj(mp_obj_t max_in) {
-    return usdl2_pump_scheduler(max_in);
+static mp_obj_t SDL_PumpEvents_obj(void) {
+    return usdl2_pump_events();
 }
-MP_DEFINE_CONST_FUN_OBJ_1(pump_scheduler_fun_obj, pump_scheduler_obj);
+MP_DEFINE_CONST_FUN_OBJ_0(SDL_PumpEvents_fun_obj, SDL_PumpEvents_obj);
 
 mp_obj_t usdl2_get_display_usable_bounds(size_t n_args, const mp_obj_t *args) {
     int display_index = (int)mp_obj_get_int(args[0]);
