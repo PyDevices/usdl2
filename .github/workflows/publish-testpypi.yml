@@ -93,9 +93,11 @@ jobs:
           SDL2_VERSION=2.30.11
           curl -fsSL -o sdl2-vc.zip \
             "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-devel-${SDL2_VERSION}-VC.zip"
-          unzip -q sdl2-vc.zip -d "$HOME"
-          echo "SDL2_DEV=$HOME/SDL2-${SDL2_VERSION}" >> "$GITHUB_ENV"
-          echo "$HOME/SDL2-${SDL2_VERSION}/lib/x64" >> "$GITHUB_PATH"
+          unzip -q sdl2-vc.zip -d "$USERPROFILE"
+          # Must be a native Windows path; bash $HOME (/c/Users/...) breaks setup.py on MSVC.
+          SDL2_DEV="$(cygpath -w "$USERPROFILE/SDL2-${SDL2_VERSION}")"
+          echo "SDL2_DEV=${SDL2_DEV}" >> "$GITHUB_ENV"
+          echo "${USERPROFILE}\\SDL2-${SDL2_VERSION}\\lib\\x64" >> "$GITHUB_PATH"
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v4.1.0
@@ -140,13 +142,20 @@ jobs:
   publish:
     needs: [prepare, build-wheels, build-android-wheels]
     runs-on: ubuntu-latest
-    if: github.repository == 'PyDevices/usdl2'
+    # Upload whatever platform jobs produced (e.g. Android-only if desktop failed).
+    if: >-
+      always()
+      && github.repository == 'PyDevices/usdl2'
+      && needs.prepare.result == 'success'
+      && (needs.build-wheels.result == 'success'
+          || needs.build-android-wheels.result == 'success')
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: cibw-wheels-*
           merge-multiple: true
           path: dist
+          if-no-files-found: error
 
       - name: List wheels
         run: ls -la dist/

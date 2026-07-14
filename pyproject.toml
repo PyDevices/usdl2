@@ -22,14 +22,16 @@ version = { file = "VERSION" }
 # Android APKs install matching android_21_* wheels from TestPyPI via pydisplay_android.
 [tool.cibuildwheel]
 # cibuildwheel 4.x supports CPython 3.9+; Android wheels are cp313/cp314 only.
-build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*musllinux* *-macosx_* *-win32"
 test-command = "python -c \"import usdl2; assert hasattr(usdl2, 'SDL_PumpEvents'); assert not hasattr(usdl2, '_USE_FFI')\""
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
-before-all = "yum install -y SDL2-devel || apt-get install -y libsdl2-dev || true"
+# Distro SDL2-devel is too old for this binding; build SDL2 2.30.x into /opt/sdl2.
+before-all = "bash scripts/ci_prepare_sdl2_linux.sh"
+environment = { PKG_CONFIG_PATH = "/opt/sdl2/lib/pkgconfig:/opt/sdl2/lib64/pkgconfig", LD_LIBRARY_PATH = "/opt/sdl2/lib:/opt/sdl2/lib64" }
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
