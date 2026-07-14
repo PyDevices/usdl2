@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Build native usdl2 SDL2 C extension for CPython (unix, windows, Android)."""
+"""Build native usdl2 SDL2 C extension for CPython (unix, windows)."""
 
 import os
 import subprocess
@@ -13,15 +13,6 @@ INCLUDE_DIRS = [os.path.join(ROOT, "include")]
 
 
 def _unix_sdl2():
-    # Android / p4a: headers from bootstrap JNI; link SDL2 provided by the recipe env.
-    android_include = os.environ.get("USDL2_SDL2_INCLUDE", "").strip()
-    if os.environ.get("USDL2_ANDROID", "").strip() in ("1", "true", "yes") or android_include:
-        include_dirs = INCLUDE_DIRS + ([android_include] if android_include else [])
-        return include_dirs, [], ["SDL2"], [
-            "-Wno-unused-function",
-            "-Wno-sign-compare",
-        ], []
-
     pkg_config = subprocess.run(
         ["pkg-config", "--cflags", "--libs", "sdl2"],
         capture_output=True,

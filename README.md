@@ -1,6 +1,6 @@
 # usdl2
 
-Native **SDL2 subset** for Python (`import usdl2`) — pure C for MicroPython (unix + windows), CircuitPython unix, CPython (`python3` / `python.exe`), and Android (p4a). When this module is not linked/installed, pydisplay falls back to [`add_ons/usdl2.py`](https://github.com/PyDevices/pydisplay/blob/main/src/add_ons/usdl2.py).
+Native **SDL2 subset** for Python (`import usdl2`) — pure C for MicroPython (unix + windows), CircuitPython unix, and CPython (`python3` / `python.exe`). Android APKs consume the published CPython package (ctypes wheel on TestPyPI) via [pydisplay_android](https://github.com/PyDevices/pydisplay_android). When this module is not linked/installed, pydisplay falls back to [`add_ons/usdl2.py`](https://github.com/PyDevices/pydisplay/blob/main/src/add_ons/usdl2.py).
 
 Public names are **SDL2 symbols only** (functions, constants, macros such as `SDL_DEFINE_PIXELFORMAT`). Custom helpers do not belong here.
 
@@ -12,7 +12,6 @@ usdl2/
   src/usdl2_mp.c                                 # MicroPython + CircuitPython
   src/usdl2_cpy.c                                # CPython Extension
   include/usdl2.h, usdl2_module_globals.inc, …
-  p4a_recipes/usdl2/                             # CompiledComponents + SDL2
   test_usdl2.py
 ```
 
@@ -83,7 +82,7 @@ xvfb-run -a python3 test_usdl2.py
 
 ## Android
 
-`p4a_recipes/usdl2/` builds **`src/usdl2_cpy.c`** against the SDL2 bootstrap (`CompiledComponentsPythonRecipe`). Set `P4A_usdl2_DIR` to this repo for local builds. APK demos live in [pydisplay_android](https://github.com/PyDevices/pydisplay_android).
+APK builds and p4a recipes live in [pydisplay_android](https://github.com/PyDevices/pydisplay_android). That project installs this package from TestPyPI (ctypes `usdl2` + the p4a SDL2 bootstrap).
 
 ## Smoke test
 

@@ -1,8 +1,10 @@
 # AGENTS.md — usdl2
 
 Native **SDL2 subset for Python** (`import usdl2`). Pure C for MicroPython,
-CircuitPython, CPython, and Android (p4a). When this module is not linked,
-pydisplay falls back to `src/add_ons/usdl2.py` (same public contract).
+CircuitPython, and CPython. Android APK packaging is in
+`pydisplay_android` (TestPyPI wheel + p4a recipes), not this repo. When this
+module is not linked, pydisplay falls back to `src/add_ons/usdl2.py` (same
+public contract).
 
 ## Hard rule: SDL2 symbols only
 
