@@ -1,12 +1,12 @@
-# Build the usdl2 pure-Python wheel/sdist and upload to TestPyPI.
+# Build usdl2 wheels (Linux + Windows + Android) with cibuildwheel and upload to TestPyPI.
 #
 # Release trigger: push an annotated semver tag vX.Y.Z (see scripts/publish_release_tag.sh),
 # or workflow_dispatch.
 #
-# Required repository secret (Settings → Secrets and variables → Actions):
+# Required repository secret (PyDevices org or repo):
 #   TESTPYPI_API_TOKEN — TestPyPI API token (same as PyDevices/pydisplay)
 #
-# Install from TestPyPI:
+# Install from TestPyPI (wheels are platform-specific):
 #   pip install -i https://test.pypi.org/simple/ usdl2
 
 name: Publish TestPyPI
@@ -26,9 +26,11 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  prepare:
     runs-on: ubuntu-latest
     if: github.repository == 'PyDevices/usdl2'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,23 +68,97 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing usdl2 release $VERSION"
 
+  build-wheels:
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'PyDevices/usdl2'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Write VERSION file
-        run: echo "${{ steps.version.outputs.version }}" > VERSION
+        shell: bash
+        run: echo "${{ needs.prepare.outputs.version }}" > VERSION
+
+      - name: Fetch SDL2 (Windows VC)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDL2_VERSION=2.30.11
+          curl -fsSL -o sdl2-vc.zip \
+            "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-devel-${SDL2_VERSION}-VC.zip"
+          unzip -q sdl2-vc.zip -d "$HOME"
+          echo "SDL2_DEV=$HOME/SDL2-${SDL2_VERSION}" >> "$GITHUB_ENV"
+          echo "$HOME/SDL2-${SDL2_VERSION}/lib/x64" >> "$GITHUB_PATH"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.1.0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  build-android-wheels:
+    needs: prepare
+    runs-on: ubuntu-latest
+    if: github.repository == 'PyDevices/usdl2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Write VERSION file
+        shell: bash
+        run: echo "${{ needs.prepare.outputs.version }}" > VERSION
+
+      - name: Build Android wheels
+        uses: pypa/cibuildwheel@v4.1.0
+        env:
+          CIBW_PLATFORM: android
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-android
+          path: wheelhouse/*.whl
+
+  publish:
+    needs: [prepare, build-wheels, build-android-wheels]
+    runs-on: ubuntu-latest
+    if: github.repository == 'PyDevices/usdl2'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: List wheels
+        run: ls -la dist/
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Build package
-        run: |
-          python -m pip install --upgrade pip build twine
-          python -m build
-
-      - name: List artifacts
-        run: ls -la dist/
-
       - name: Upload to TestPyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
-        run: twine upload --repository testpypi --verbose dist/*
+        run: |
+          python -m pip install twine
+          twine upload --repository testpypi --verbose dist/*

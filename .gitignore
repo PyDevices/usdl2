@@ -8,6 +8,10 @@ __pycache__/
 .eggs/
 dist/
 build/
+wheelhouse/
 VERSION
 .bin/
 .venv/
+.sdl2-android/
+.sdl2-src/
+default.profraw

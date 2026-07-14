@@ -1,6 +1,6 @@
 # usdl2
 
-Native **SDL2 subset** for Python (`import usdl2`) — pure C for MicroPython (unix + windows), CircuitPython unix, and CPython (`python3` / `python.exe`). Android APKs consume the published CPython package (ctypes wheel on TestPyPI) via [pydisplay_android](https://github.com/PyDevices/pydisplay_android). When this module is not linked/installed, pydisplay falls back to [`add_ons/usdl2.py`](https://github.com/PyDevices/pydisplay/blob/main/src/add_ons/usdl2.py).
+Native **SDL2 subset** for Python (`import usdl2`) — pure C for MicroPython (unix + windows), CircuitPython unix, and CPython (`python3` / `python.exe` / Android). Android APKs install native `android_21_*` wheels from TestPyPI via [pydisplay_android](https://github.com/PyDevices/pydisplay_android) (linked against the APK’s p4a SDL2 bootstrap). When this module is not linked/installed, pydisplay falls back to [`add_ons/usdl2.py`](https://github.com/PyDevices/pydisplay/blob/main/src/add_ons/usdl2.py).
 
 Public names are **SDL2 symbols only** (functions, constants, macros such as `SDL_DEFINE_PIXELFORMAT`). Custom helpers do not belong here.
 
@@ -82,7 +82,17 @@ xvfb-run -a python3 test_usdl2.py
 
 ## Android
 
-APK builds and p4a recipes live in [pydisplay_android](https://github.com/PyDevices/pydisplay_android). That project installs this package from TestPyPI (ctypes `usdl2` + the p4a SDL2 bootstrap).
+CI publishes `android_21_arm64_v8a` and `android_21_x86_64` wheels (`cp313` / `cp314`) to TestPyPI. Local reproduction:
+
+```bash
+export ANDROID_HOME=~/.buildozer/android/platform/android-sdk
+export ANDROID_NDK_HOME=~/.buildozer/android/platform/android-ndk-r28c
+echo "0.0.0.dev" > VERSION
+./scripts/ci_prepare_sdl2_android.sh
+pipx run cibuildwheel --platform android
+```
+
+APK packaging lives in [pydisplay_android](https://github.com/PyDevices/pydisplay_android).
 
 ## Smoke test
 

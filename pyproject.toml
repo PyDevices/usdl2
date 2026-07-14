@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "usdl2"
 dynamic = ["version"]
-description = "Native CPython SDL2 subset for pydisplay (unix, windows)"
+description = "Native CPython SDL2 subset for pydisplay (unix, windows, Android)"
 license = "MIT"
 requires-python = ">=3.8"
 classifiers = [
@@ -18,8 +18,8 @@ packages = []
 [tool.setuptools.dynamic]
 version = { file = "VERSION" }
 
-# Wheel CI: one wheel per CPython minor × Linux + Windows.
-# Android APKs install usdl2 from TestPyPI via pydisplay_android p4a recipes.
+# Wheel CI: one wheel per CPython minor × Linux + Windows + Android.
+# Android APKs install matching android_21_* wheels from TestPyPI via pydisplay_android.
 [tool.cibuildwheel]
 build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*musllinux* *-macosx_* *-win32"
@@ -32,3 +32,18 @@ before-all = "yum install -y SDL2-devel || apt-get install -y libsdl2-dev || tru
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
+
+# PEP 738 Android tags. Link against SDL2 prepared by scripts/ci_prepare_sdl2_android.sh;
+# do not vendor libSDL2.so (p4a SDL2 bootstrap provides it at APK runtime).
+[tool.cibuildwheel.android]
+archs = ["arm64_v8a", "x86_64"]
+environment = { ANDROID_API_LEVEL = "21", USDL2_ANDROID = "1" }
+before-all = "bash scripts/ci_prepare_sdl2_android.sh"
+test-command = "python -c \"import usdl2; assert hasattr(usdl2, 'SDL_PumpEvents')\""
+test-skip = "*"
+# Keep DT_NEEDED=libSDL2.so; p4a ships the real library in the APK.
+repair-wheel-command = ""
+
+[[tool.cibuildwheel.overrides]]
+select = "*-android_*"
+build-frontend = "build"
