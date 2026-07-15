@@ -15,3 +15,7 @@ VERSION
 .sdl2-android/
 .sdl2-src/
 default.profraw
+
+# Cursor IDE throwaways (do not ignore the whole .cursor/ tree)
+.cursor/debug*
+.cursor/plans/
