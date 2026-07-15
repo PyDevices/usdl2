@@ -33,9 +33,11 @@
   </header>
 
   <section class="hero wrap">
+    <div class="logo-badge"><img src="https://pydevices.github.io/assets/img/logo.svg" alt="PyDevices logo" width="112" height="112"></div>
     <span class="eyebrow">PyDevices / usdl2</span>
     <h1>Native SDL2 subset for pydisplay's desktop backend</h1>
-    <p>Native SDL2 subset for pydisplay's desktop backend (<code>import usdl2</code>) on MicroPython &amp; CPython, unix &amp; Windows.</p>
+    <p>usdl2 is a focused native binding to a useful subset of SDL2 for pydisplay&apos;s desktop backends. It gives MicroPython and CPython the same window, surface, and input primitives on unix and Windows without pulling in a full SDL wrapper surface or fighting pygame-only paths.</p>
+    <p>Use it when you want the pydisplay desktop experience — live windows, pointer and keyboard events — backed by C. Pair it with the cmods build matrix for MicroPython firmware tests, or install the CPython module where your host tooling already lives.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/PyDevices/usdl2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-1-2.6c3-.3 6-1.5 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.5 1.3a12 12 0 0 0-6 0C6.6 1.7 5.5 2 5.5 2a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 4 9c0 5 3 6.2 6 6.5a3.4 3.4 0 0 0-1 2.6V22"/></svg>
