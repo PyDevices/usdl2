@@ -29,7 +29,7 @@ Do **not** vendor SDL2 in this repo. Download official devel ZIPs from [libsdl.o
 
 | Consumer | ZIP | Example unpack | `SDL2_DEV` |
 |----------|-----|----------------|------------|
-| `micropython.exe` (MinGW) | `SDL2-devel-*-mingw.zip` | `~/SDL2-2.30.10` (`x86_64-w64-mingw32/` inside) | that path |
+| `micropython.exe` (MinGW) | `SDL2-devel-*-mingw.zip` | `../../other/SDL2-2.30.10` from cmods (`x86_64-w64-mingw32/` inside) | that path |
 | `python.exe` (MSVC) | `SDL2-devel-*-VC.zip` | `C:\SDL2-2.30.10-VC` (`include/` + `lib/x64/`) | that path |
 
 `micropython.mk` links MinGW SDL2 **statically**. CPython wheels/extensions need `SDL2.dll` on `PATH` at runtime (from `lib/x64` of the VC tree).
@@ -51,7 +51,7 @@ See also [`scripts/sdl2_dev_env.sh`](scripts/sdl2_dev_env.sh).
 # unix
 cd micropython/ports/unix && make USER_C_MODULES=../../..
 # windows (MinGW)
-export SDL2_DEV=~/SDL2-2.30.10
+export SDL2_DEV=../../other/SDL2-2.30.10
 cd micropython/ports/windows && make USER_C_MODULES=../../..
 ```
 

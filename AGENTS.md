@@ -41,3 +41,8 @@ not belong here.
 
 `test_usdl2.py` on MP unix, MP windows, CP unix, CPython unix, and `python.exe`
 (see README for `SDL2_DEV`). Do not weaken tests to allow non-SDL public names.
+
+## After C changes
+
+Refresh pydisplay’s committed runtimes (desktop bins + PyScript vendor wasm) with
+`../build_pydisplay_runtimes.sh` (from the cmods workspace root).
