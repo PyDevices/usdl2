@@ -1,10 +1,51 @@
 # usdl2
 
-Native **SDL2 subset** for Python (`import usdl2`) — pure C for MicroPython (unix + windows), CircuitPython unix, and CPython (`python3` / `python.exe` / Android). Android APKs install native `android_21_*` wheels from TestPyPI via [pydisplay_android](https://github.com/PyDevices/pydisplay_android) (linked against the APK’s p4a SDL2 bootstrap). When this module is not linked/installed, pydisplay falls back to [`add_ons/usdl2.py`](https://github.com/PyDevices/pydisplay/blob/main/src/add_ons/usdl2.py).
+Native **SDL2 subset** for Python (`import usdl2`) — CPython wheels (Linux, Windows, Android) plus MicroPython / CircuitPython user C modules. Public names are **SDL2 symbols only**.
 
-Public names are **SDL2 symbols only** (functions, constants, macros such as `SDL_DEFINE_PIXELFORMAT`). Custom helpers do not belong here.
+When this module is not linked or installed, [pydisplay](https://github.com/PyDevices/pydisplay) falls back to [`add_ons/usdl2.py`](https://github.com/PyDevices/pydisplay/blob/main/src/add_ons/usdl2.py).
 
-## Layout
+## Install
+
+### CPython (TestPyPI)
+
+```bash
+pip install \
+  -i https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  usdl2
+```
+
+Requires a system or bundled **SDL2** shared library at runtime (`libSDL2.so` / `SDL2.dll`). Android APKs use wheels tagged `android_21_*` with the APK’s p4a SDL2 bootstrap — see [pydisplay_android](https://github.com/PyDevices/pydisplay_android).
+
+### Quick check
+
+```bash
+python -c "import usdl2; assert hasattr(usdl2, 'SDL_PumpEvents'); print('ok')"
+```
+
+## What you get
+
+- SDL2 functions, constants, and macros (`SDL_Init`, `SDL_CreateWindow`, `SDL_PumpEvents`, `SDL_DEFINE_PIXELFORMAT`, …)
+- Type constructors for SDL structs (`SDL_Rect`, `SDL_Event`, …)
+- Same public contract on MicroPython, CircuitPython unix, and CPython
+
+Firmware / editable builds: see **Build from source** below.
+
+## Links
+
+- [Source](https://github.com/PyDevices/usdl2)
+- [Issues](https://github.com/PyDevices/usdl2/issues)
+- Related: [displaysys](https://test.pypi.org/project/displaysys/), [pydisplay](https://github.com/PyDevices/pydisplay)
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+## Build from source
+
+### Layout
 
 ```text
 usdl2/
@@ -15,15 +56,15 @@ usdl2/
   test_usdl2.py
 ```
 
-## SDL2 at build time
+### SDL2 at build time
 
-### Linux / unix
+#### Linux / unix
 
 ```bash
 sudo apt install libsdl2-dev   # pkg-config sdl2
 ```
 
-### Windows — two trees under `SDL2_DEV`
+#### Windows — two trees under `SDL2_DEV`
 
 Do **not** vendor SDL2 in this repo. Download official devel ZIPs from [libsdl.org releases](https://github.com/libsdl-org/SDL/releases):
 
@@ -45,7 +86,7 @@ cmd.exe /c "set PATH=C:\SDL2-2.30.10-VC\lib\x64;%PATH%&& python.exe $(wslpath -w
 
 See also [`scripts/sdl2_dev_env.sh`](scripts/sdl2_dev_env.sh).
 
-## MicroPython
+### MicroPython
 
 ```bash
 # unix
@@ -62,7 +103,7 @@ Or from [cmods](https://github.com/PyDevices/cmods): `./build_mp.sh --port unix|
 ./micropython/ports/windows/build-standard/micropython.exe usdl2/test_usdl2.py
 ```
 
-## CircuitPython (unix)
+### CircuitPython (unix)
 
 ```bash
 ./apply_cp_unix_usdl_patches.sh --apply
@@ -70,7 +111,7 @@ Or from [cmods](https://github.com/PyDevices/cmods): `./build_mp.sh --port unix|
 ../circuitpython/ports/unix/build-coverage/micropython test_usdl2.py
 ```
 
-## CPython
+### CPython (editable)
 
 ```bash
 # unix
@@ -80,7 +121,7 @@ xvfb-run -a python3 test_usdl2.py
 # windows — see SDL2_DEV table above + pip.exe / python.exe
 ```
 
-## Android
+### Android wheels
 
 CI publishes `android_21_arm64_v8a` and `android_21_x86_64` wheels (`cp313` / `cp314`) to TestPyPI. Local reproduction:
 
@@ -94,6 +135,6 @@ pipx run cibuildwheel --platform android
 
 APK packaging lives in [pydisplay_android](https://github.com/PyDevices/pydisplay_android).
 
-## Smoke test
+### Smoke test
 
 `test_usdl2.py` exercises init, window/renderer, packed rects, `SDL_Event` layout, timers, and `SDL_PumpEvents` on every runtime above.
