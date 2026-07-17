@@ -3,3 +3,6 @@
 Q(SDL_PumpEvents)
 Q(SDL_GetDisplayUsableBounds)
 Q(SDL_GetDesktopDisplayMode)
+Q(SDL_SetWindowResizable)
+Q(SDL_SetWindowMinimumSize)
+Q(SDL_SetWindowMaximumSize)

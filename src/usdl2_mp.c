@@ -412,6 +412,32 @@ mp_obj_t usdl2_set_window_size(size_t n_args, const mp_obj_t *args) {
     return mp_const_none;
 }
 
+mp_obj_t usdl2_set_window_resizable(size_t n_args, const mp_obj_t *args) {
+    (void)n_args;
+    SDL_SetWindowResizable(
+        (SDL_Window *)usdl2_ptr_from_obj(args[0]),
+        mp_obj_is_true(args[1]) ? SDL_TRUE : SDL_FALSE);
+    return mp_const_none;
+}
+
+mp_obj_t usdl2_set_window_minimum_size(size_t n_args, const mp_obj_t *args) {
+    (void)n_args;
+    SDL_SetWindowMinimumSize(
+        (SDL_Window *)usdl2_ptr_from_obj(args[0]),
+        (int)mp_obj_get_int(args[1]),
+        (int)mp_obj_get_int(args[2]));
+    return mp_const_none;
+}
+
+mp_obj_t usdl2_set_window_maximum_size(size_t n_args, const mp_obj_t *args) {
+    (void)n_args;
+    SDL_SetWindowMaximumSize(
+        (SDL_Window *)usdl2_ptr_from_obj(args[0]),
+        (int)mp_obj_get_int(args[1]),
+        (int)mp_obj_get_int(args[2]));
+    return mp_const_none;
+}
+
 mp_obj_t usdl2_create_renderer(size_t n_args, const mp_obj_t *args) {
     (void)n_args;
     SDL_Renderer *renderer = SDL_CreateRenderer(
@@ -868,6 +894,21 @@ static mp_obj_t SDL_SetWindowSize_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_set_window_size(n_args, args);
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetWindowSize_fun_obj, 3, 3, SDL_SetWindowSize_obj);
+
+static mp_obj_t SDL_SetWindowResizable_obj(size_t n_args, const mp_obj_t *args) {
+    return usdl2_set_window_resizable(n_args, args);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetWindowResizable_fun_obj, 2, 2, SDL_SetWindowResizable_obj);
+
+static mp_obj_t SDL_SetWindowMinimumSize_obj(size_t n_args, const mp_obj_t *args) {
+    return usdl2_set_window_minimum_size(n_args, args);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetWindowMinimumSize_fun_obj, 3, 3, SDL_SetWindowMinimumSize_obj);
+
+static mp_obj_t SDL_SetWindowMaximumSize_obj(size_t n_args, const mp_obj_t *args) {
+    return usdl2_set_window_maximum_size(n_args, args);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(SDL_SetWindowMaximumSize_fun_obj, 3, 3, SDL_SetWindowMaximumSize_obj);
 
 static mp_obj_t SDL_CreateRenderer_obj(size_t n_args, const mp_obj_t *args) {
     return usdl2_create_renderer(n_args, args);

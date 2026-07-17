@@ -841,6 +841,51 @@ static PyObject *py_SDL_SetWindowSize(PyObject *module, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *py_SDL_SetWindowResizable(PyObject *module, PyObject *args) {
+    (void)module;
+    PyObject *win_obj;
+    int resizable;
+    if (!PyArg_ParseTuple(args, "Oi", &win_obj, &resizable)) {
+        return NULL;
+    }
+    void *ptr;
+    if (!ptr_converter(win_obj, &ptr)) {
+        return NULL;
+    }
+    SDL_SetWindowResizable((SDL_Window *)ptr, resizable ? SDL_TRUE : SDL_FALSE);
+    Py_RETURN_NONE;
+}
+
+static PyObject *py_SDL_SetWindowMinimumSize(PyObject *module, PyObject *args) {
+    (void)module;
+    PyObject *win_obj;
+    int w, h;
+    if (!PyArg_ParseTuple(args, "Oii", &win_obj, &w, &h)) {
+        return NULL;
+    }
+    void *ptr;
+    if (!ptr_converter(win_obj, &ptr)) {
+        return NULL;
+    }
+    SDL_SetWindowMinimumSize((SDL_Window *)ptr, w, h);
+    Py_RETURN_NONE;
+}
+
+static PyObject *py_SDL_SetWindowMaximumSize(PyObject *module, PyObject *args) {
+    (void)module;
+    PyObject *win_obj;
+    int w, h;
+    if (!PyArg_ParseTuple(args, "Oii", &win_obj, &w, &h)) {
+        return NULL;
+    }
+    void *ptr;
+    if (!ptr_converter(win_obj, &ptr)) {
+        return NULL;
+    }
+    SDL_SetWindowMaximumSize((SDL_Window *)ptr, w, h);
+    Py_RETURN_NONE;
+}
+
 static PyObject *py_SDL_CreateRenderer(PyObject *module, PyObject *args) {
     (void)module;
     PyObject *win_obj;
@@ -1258,6 +1303,9 @@ static PyMethodDef usdl2_methods[] = {
     {"SDL_CreateWindow", py_SDL_CreateWindow, METH_VARARGS, NULL},
     {"SDL_DestroyWindow", py_SDL_DestroyWindow, METH_O, NULL},
     {"SDL_SetWindowSize", py_SDL_SetWindowSize, METH_VARARGS, NULL},
+    {"SDL_SetWindowResizable", py_SDL_SetWindowResizable, METH_VARARGS, NULL},
+    {"SDL_SetWindowMinimumSize", py_SDL_SetWindowMinimumSize, METH_VARARGS, NULL},
+    {"SDL_SetWindowMaximumSize", py_SDL_SetWindowMaximumSize, METH_VARARGS, NULL},
     {"SDL_CreateRenderer", py_SDL_CreateRenderer, METH_VARARGS, NULL},
     {"SDL_DestroyRenderer", py_SDL_DestroyRenderer, METH_O, NULL},
     {"SDL_SetRenderDrawColor", py_SDL_SetRenderDrawColor, METH_VARARGS, NULL},
