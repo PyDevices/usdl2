@@ -668,12 +668,16 @@ typedef struct usdl2_timer_entry {
     Uint32 interval;
     Uint32 last_interval;
     uint8_t slot;
+    // Set while a dispatch is queued/running so SDL ticks coalesce instead of
+    // flooding MICROPY_SCHEDULER_DEPTH (see pydisplay SDL timer queue full).
+    volatile uint8_t pending;
 } usdl2_timer_entry_t;
 
 const mp_obj_type_t usdl2_timer_cb_type;
 
 static usdl2_timer_entry_t *usdl2_timer_list;
 static usdl2_timer_entry_t *usdl2_timer_by_slot[USDL2_TIMER_MAX];
+static uint32_t usdl2_sched_full_last_ms;
 
 static usdl2_timer_entry_t *usdl2_timer_find(SDL_TimerID id) {
     for (usdl2_timer_entry_t *entry = usdl2_timer_list; entry != NULL; entry = entry->next) {
@@ -725,6 +729,7 @@ static mp_obj_t usdl2_timer_dispatch(mp_obj_t slot_in) {
     if (entry == NULL) {
         return mp_const_none;
     }
+    entry->pending = 0;
     mp_obj_t args[2] = {
         mp_obj_new_int_from_uint(entry->last_interval),
         entry->user_param,
@@ -743,10 +748,27 @@ static Uint32 SDLCALL usdl2_timer_trampoline(Uint32 interval, void *param) {
     entry->last_interval = interval;
 
     #if MICROPY_ENABLE_SCHEDULER
+    // At most one queued dispatch per timer (SDL thread vs VM drain).
+    mp_uint_t atomic_state = MICROPY_BEGIN_ATOMIC_SECTION();
+    if (entry->pending) {
+        MICROPY_END_ATOMIC_SECTION(atomic_state);
+        return entry->interval;
+    }
+    entry->pending = 1;
+    MICROPY_END_ATOMIC_SECTION(atomic_state);
+
     if (!mp_sched_schedule(
         MP_OBJ_FROM_PTR(&usdl2_timer_dispatch_obj),
         MP_OBJ_NEW_SMALL_INT(entry->slot))) {
-        mp_printf(MICROPY_ERROR_PRINTER, "SDL timer schedule queue full\n");
+        atomic_state = MICROPY_BEGIN_ATOMIC_SECTION();
+        entry->pending = 0;
+        MICROPY_END_ATOMIC_SECTION(atomic_state);
+        // Rate-limit: a full queue previously flooded stderr every SDL tick.
+        uint32_t now = mp_hal_ticks_ms();
+        if ((uint32_t)(now - usdl2_sched_full_last_ms) >= 1000u) {
+            usdl2_sched_full_last_ms = now;
+            mp_printf(MICROPY_ERROR_PRINTER, "SDL timer schedule queue full\n");
+        }
     }
     #else
     usdl2_timer_dispatch(MP_OBJ_NEW_SMALL_INT(entry->slot));
@@ -786,6 +808,7 @@ mp_obj_t usdl2_add_timer(size_t n_args, const mp_obj_t *args) {
     entry->interval = (Uint32)mp_obj_get_int(args[0]);
     entry->last_interval = entry->interval;
     entry->id = 0;
+    entry->pending = 0;
 
     if (usdl2_timer_alloc_slot(entry) < 0) {
         free(entry);
